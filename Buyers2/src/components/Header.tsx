@@ -166,7 +166,7 @@ export default function Header({
                 Login
               </Button>
               <Button
-                onClick={() => { window.location.href = 'http://localhost:3001'; }}
+                onClick={() => { window.location.href = 'https://handsandhope-sellers.vercel.app/'; }}
                 className="bg-yellow-400 text-[#1e2875] hover:bg-yellow-500 focus:ring-2 focus:ring-yellow-600"
               >
                 Register as Seller
