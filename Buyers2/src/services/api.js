@@ -1,5 +1,5 @@
 // API service for Buyers2 frontend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://handsandhope-31gp.onrender.com';
 
 console.log('API Base URL:', API_BASE_URL);
 

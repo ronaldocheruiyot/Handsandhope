@@ -63,7 +63,7 @@ export function RegistrationPage({ onRegister, onNavigateToLogin }: Registration
   let API_URL = ((import.meta as any).env?.VITE_API_URL as string) || '';
   // If API_URL is empty, use relative paths to leverage Vite proxy
   const useRelativePaths = !API_URL || API_URL === '';
-  if (!API_URL || !API_URL.startsWith('http')) API_URL = 'http://localhost:5000';
+  if (!API_URL || !API_URL.startsWith('http')) API_URL = 'https://handsandhope-31gp.onrender.com';
 
   const uploadFiles = async (fileInputIdOrFiles: string | File[]) => {
     let filesArr: File[] = [];

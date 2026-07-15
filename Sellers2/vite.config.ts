@@ -11,7 +11,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://handsandhope-31gp.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,

@@ -28,7 +28,7 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000';
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'https://handsandhope-31gp.onrender.com';
 
   useEffect(() => {
     const fetchSettings = async () => {
