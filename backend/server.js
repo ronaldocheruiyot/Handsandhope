@@ -35,8 +35,9 @@ const corsOptions = {
     "http://localhost:3002",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",
-    "https://hands-and-hope.onrender.com",
-    "https://sellers-awb5.onrender.com"
+    "https://handsandhope-31gp.onrender.com", // backend if needed
+    "https://handsandhope-git-viona-ronaldokipkirui90-gmailcoms-projects.vercel.app", // Buyers
+    "https://handsandhope-<sellers-project>.vercel.app" // Sellers — replace with exact domain
   ],
   credentials: true,
   optionsSuccessStatus: 200
