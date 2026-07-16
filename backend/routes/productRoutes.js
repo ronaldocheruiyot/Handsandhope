@@ -4,6 +4,19 @@ import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /api/products:
+ *   get:
+ *     summary: Get all products.
+ *     tags:
+ *       - Products
+ *     responses:
+ *       200:
+ *         description: List of products.
+ *       500:
+ *         description: Server error.
+ */
 // ==============================\
 // @desc    Get all products
 // @route   GET /api/products
@@ -18,6 +31,23 @@ router.get("/", async (req, res) => {
   }
 }); 
 
+/**
+ * @openapi
+ * /api/products/seller:
+ *   get:
+ *     summary: Get products for the logged-in seller (excluding soft-deleted).
+ *     tags:
+ *       - Products
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of seller products.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // ==============================
 // @desc    Get products for logged-in seller (excluding soft-deleted)
 // @route   GET /api/products/seller
@@ -35,6 +65,56 @@ router.get("/seller", authMiddleware, async (req, res) => {
   }
 }); 
 
+/**
+ * @openapi
+ * /api/products:
+ *   post:
+ *     summary: Create a new product for the logged-in seller.
+ *     tags:
+ *       - Products
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               stock:
+ *                 type: integer
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               warranty:
+ *                 type: string
+ *               refundDeadline:
+ *                 type: string
+ *             required:
+ *               - name
+ *               - price
+ *               - images
+ *     responses:
+ *       201:
+ *         description: Product created.
+ *       400:
+ *         description: Validation error.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // ==============================
 // @desc    Add a new product (seller)
 // @route   POST /api/products
@@ -76,6 +156,32 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/products/{id}:
+ *   delete:
+ *     summary: Soft-delete a product by ID for the logged-in seller.
+ *     tags:
+ *       - Products
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Product ID.
+ *     responses:
+ *       200:
+ *         description: Product removed from listing.
+ *       403:
+ *         description: Not authorized.
+ *       404:
+ *         description: Product not found.
+ *       500:
+ *         description: Server error.
+ */
 // ==============================
 // @desc    Soft delete a product by ID (seller) - keeps in database for records
 // @route   DELETE /api/products/:id
@@ -104,6 +210,59 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/products/{id}:
+ *   put:
+ *     summary: Update a product by ID for the logged-in seller.
+ *     tags:
+ *       - Products
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Product ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               status:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               stock:
+ *                 type: integer
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               warranty:
+ *                 type: string
+ *               refundDeadline:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Product updated.
+ *       403:
+ *         description: Not authorized.
+ *       404:
+ *         description: Product not found.
+ *       500:
+ *         description: Server error.
+ */
 // ==============================
 // @desc    Update a product by ID (seller)
 // @route   PUT /api/products/:id

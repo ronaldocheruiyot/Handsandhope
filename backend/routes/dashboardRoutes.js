@@ -98,6 +98,25 @@ const resolveSellerIds = async (userId) => {
 // Protected middleware to check auth
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /api/dashboard/stats:
+ *   get:
+ *     summary: Get comprehensive dashboard overview stats for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard stats returned.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/stats - Get comprehensive dashboard overview stats
 router.get('/stats', async (req, res) => {
   try {
@@ -198,6 +217,23 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/profile:
+ *   get:
+ *     summary: Get detailed profile info for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile returned.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ */
 // GET /api/dashboard/profile - Get user profile info
 router.get('/profile', async (req, res) => {
   try {
@@ -264,6 +300,48 @@ router.get('/profile', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/profile:
+ *   put:
+ *     summary: Update profile info for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               skills:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               profilePhoto:
+ *                 type: string
+ *               disabilityId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ */
 // PUT /api/dashboard/profile - Update user profile
 router.put('/profile', async (req, res) => {
   try {
@@ -311,6 +389,21 @@ router.put('/profile', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/track-view:
+ *   post:
+ *     summary: Increment profile view count for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile view count incremented.
+ *       500:
+ *         description: Server error.
+ */
 // POST /api/dashboard/track-view - Increment profile view count
 router.post('/track-view', async (req, res) => {
   try {
@@ -322,6 +415,23 @@ router.post('/track-view', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/settings:
+ *   get:
+ *     summary: Get account settings for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account settings returned.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ */
 // GET /api/dashboard/settings - Get account settings
 router.get('/settings', async (req, res) => {
   try {
@@ -358,6 +468,57 @@ router.get('/settings', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/settings:
+ *   put:
+ *     summary: Update account settings for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               account:
+ *                 type: object
+ *                 properties:
+ *                   fullName:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *               notifications:
+ *                 type: object
+ *                 properties:
+ *                   email:
+ *                     type: boolean
+ *                   push:
+ *                     type: boolean
+ *                   inquiryAlerts:
+ *                     type: boolean
+ *                   productApprovals:
+ *                     type: boolean
+ *               regional:
+ *                 type: object
+ *                 properties:
+ *                   language:
+ *                     type: string
+ *                   timezone:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Settings updated successfully.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ */
 // PUT /api/dashboard/settings - Update account settings
 router.put('/settings', async (req, res) => {
   try {
@@ -399,6 +560,39 @@ router.put('/settings', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/settings/password:
+ *   put:
+ *     summary: Update password for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *     responses:
+ *       200:
+ *         description: Password updated successfully.
+ *       400:
+ *         description: Invalid current password or missing fields.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: User not found.
+ */
 // PUT /api/dashboard/settings/password - Update password
 router.put('/settings/password', async (req, res) => {
   try {
@@ -424,6 +618,23 @@ router.put('/settings/password', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/products:
+ *   get:
+ *     summary: Get user's products/listings for the dashboard.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of user products.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/products - Get user's products/listings
 router.get('/products', async (req, res) => {
   try {
@@ -436,6 +647,23 @@ router.get('/products', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/analytics-summary:
+ *   get:
+ *     summary: Get sales analytics summary for the logged-in user.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Analytics summary returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/analytics-summary - Get sales analytics summary
 router.get('/analytics-summary', async (req, res) => {
   try {
@@ -516,6 +744,23 @@ router.get('/analytics-summary', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/orders:
+ *   get:
+ *     summary: Get seller's orders.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of seller orders.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/orders - Get seller's orders
 router.get('/orders', async (req, res) => {
   try {
@@ -528,6 +773,23 @@ router.get('/orders', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/inquiries:
+ *   get:
+ *     summary: Get seller's inquiries from buyers.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of seller inquiries.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/inquiries - Get seller's inquiries
 router.get('/inquiries', async (req, res) => {
   try {
@@ -564,6 +826,43 @@ router.get('/inquiries', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/inquiries/{id}/reply:
+ *   put:
+ *     summary: Reply to a buyer inquiry.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Inquiry ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *             required:
+ *               - message
+ *     responses:
+ *       200:
+ *         description: Reply saved successfully.
+ *       400:
+ *         description: Reply message is required.
+ *       404:
+ *         description: Inquiry not found.
+ *       500:
+ *         description: Server error.
+ */
 // PUT /api/dashboard/inquiries/:id/reply - Reply to inquiry
 router.put('/inquiries/:id/reply', async (req, res) => {
   try {
@@ -586,6 +885,30 @@ router.put('/inquiries/:id/reply', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/inquiries/{id}/archive:
+ *   put:
+ *     summary: Archive a buyer inquiry.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Inquiry ID.
+ *     responses:
+ *       200:
+ *         description: Inquiry archived successfully.
+ *       404:
+ *         description: Inquiry not found.
+ *       500:
+ *         description: Server error.
+ */
 // PUT /api/dashboard/inquiries/:id/archive - Archive inquiry
 router.put('/inquiries/:id/archive', async (req, res) => {
   try {
@@ -602,6 +925,30 @@ router.put('/inquiries/:id/archive', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/inquiries/{id}:
+ *   delete:
+ *     summary: Delete a buyer inquiry.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Inquiry ID.
+ *     responses:
+ *       200:
+ *         description: Inquiry deleted successfully.
+ *       404:
+ *         description: Inquiry not found.
+ *       500:
+ *         description: Server error.
+ */
 // DELETE /api/dashboard/inquiries/:id - Delete inquiry
 router.delete('/inquiries/:id', async (req, res) => {
   try {
@@ -622,6 +969,23 @@ const generateTempPassword = () => {
   return password;
 };
 
+/**
+ * @openapi
+ * /api/dashboard/caregivers:
+ *   get:
+ *     summary: Get list of caregivers for the current account.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of caregivers returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/caregivers - List caregivers for current account
 router.get('/caregivers', async (req, res) => {
   try {
@@ -657,6 +1021,23 @@ router.get('/caregivers', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/caregivers/activity:
+ *   get:
+ *     summary: Get activity log for caregivers on the current account.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Activity log returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/caregivers/activity - Activity log for current account
 router.get('/caregivers/activity', async (req, res) => {
   try {
@@ -683,6 +1064,48 @@ router.get('/caregivers/activity', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/caregivers:
+ *   post:
+ *     summary: Add a new caregiver to manage the current account.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               relationshipType:
+ *                 type: string
+ *               relationshipDetails:
+ *                 type: string
+ *               permissionLevel:
+ *                 type: string
+ *               permissions:
+ *                 type: object
+ *             required:
+ *               - fullName
+ *               - email
+ *     responses:
+ *       200:
+ *         description: Caregiver added successfully.
+ *       400:
+ *         description: Full name and email are required.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // POST /api/dashboard/caregivers - Add caregiver
 router.post('/caregivers', async (req, res) => {
   try {
@@ -737,6 +1160,43 @@ router.post('/caregivers', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/caregivers/{caregiverId}/permissions:
+ *   put:
+ *     summary: Update permissions for a caregiver.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: caregiverId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Caregiver ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               permissionLevel:
+ *                 type: string
+ *               permissions:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Permissions updated successfully.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: Caregiver not found or not linked to this account.
+ *       500:
+ *         description: Server error.
+ */
 // PUT /api/dashboard/caregivers/:caregiverId/permissions - Update permissions
 router.put('/caregivers/:caregiverId/permissions', async (req, res) => {
   try {
@@ -761,6 +1221,32 @@ router.put('/caregivers/:caregiverId/permissions', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/caregivers/{caregiverId}:
+ *   delete:
+ *     summary: Remove a caregiver from managing the current account.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: caregiverId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Caregiver ID.
+ *     responses:
+ *       200:
+ *         description: Caregiver removed successfully.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: Caregiver not found.
+ *       500:
+ *         description: Server error.
+ */
 // DELETE /api/dashboard/caregivers/:caregiverId - Remove caregiver from this account
 router.delete('/caregivers/:caregiverId', async (req, res) => {
   try {
@@ -780,6 +1266,23 @@ router.delete('/caregivers/:caregiverId', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/withdrawals:
+ *   get:
+ *     summary: Get withdrawal data including pending deliveries and withdrawal requests.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Withdrawal data returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/withdrawals - Get withdrawal data
 router.get('/withdrawals', async (req, res) => {
   try {
@@ -929,6 +1432,23 @@ router.get('/withdrawals', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/messages:
+ *   get:
+ *     summary: Get buyer messages and inquiries for the logged-in seller.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of messages returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/messages - Get buyer messages
 router.get('/messages', async (req, res) => {
   try {
@@ -974,6 +1494,41 @@ router.get('/messages', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/assistance/teacher:
+ *   post:
+ *     summary: Student sends assistance message to teacher.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *             required:
+ *               - subject
+ *               - message
+ *     responses:
+ *       200:
+ *         description: Message sent to teacher successfully.
+ *       400:
+ *         description: Subject and message are required.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: Student record or teacher not found.
+ *       500:
+ *         description: Server error.
+ */
 // POST /api/dashboard/assistance/teacher - Student sends message to teacher
 router.post('/assistance/teacher', async (req, res) => {
   try {
@@ -1008,6 +1563,41 @@ router.post('/assistance/teacher', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/assistance/school:
+ *   post:
+ *     summary: Student sends assistance message to school administration.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               subject:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *             required:
+ *               - subject
+ *               - message
+ *     responses:
+ *       200:
+ *         description: Message sent to school administration successfully.
+ *       400:
+ *         description: Subject and message are required.
+ *       401:
+ *         description: Unauthorized.
+ *       404:
+ *         description: Student record or school not found.
+ *       500:
+ *         description: Server error.
+ */
 // POST /api/dashboard/assistance/school - Student sends message to school administration
 router.post('/assistance/school', async (req, res) => {
   try {
@@ -1033,6 +1623,30 @@ router.post('/assistance/school', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/analytics:
+ *   get:
+ *     summary: Get detailed analytics for the logged-in seller.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [daily, weekly, monthly, yearly]
+ *         description: Time period for analytics (default: monthly).
+ *     responses:
+ *       200:
+ *         description: Detailed analytics returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/analytics - Get detailed analytics
 router.get('/analytics', async (req, res) => {
   try {
@@ -1118,6 +1732,23 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/dashboard/refunds:
+ *   get:
+ *     summary: Get refund data for the logged-in seller.
+ *     tags:
+ *       - Dashboard
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Refund data returned.
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Server error.
+ */
 // GET /api/dashboard/refunds - Get refund data
 router.get('/refunds', async (req, res) => {
   try {
