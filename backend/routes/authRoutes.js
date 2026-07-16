@@ -11,6 +11,48 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+/**
+ * @openapi
+ * /api/auth/signup:
+ *   post:
+ *     summary: Register a new user (seller, caregiver, school, teacher, student).
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               businessName:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [seller, caregiver, school, teacher, student]
+ *               documents:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *     responses:
+ *       201:
+ *         description: User created successfully.
+ *       400:
+ *         description: Validation error or email already registered.
+ */
 // Signup
 router.post("/signup", async (req, res) => {
   try {
@@ -155,6 +197,34 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/auth/login:
+ *   post:
+ *     summary: Login and get JWT token.
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Login successful, returns token and user.
+ *       400:
+ *         description: Invalid credentials or user not found.
+ */
 // Login
 router.post("/login", async (req, res) => {
   try {
