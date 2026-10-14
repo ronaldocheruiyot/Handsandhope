@@ -39,16 +39,28 @@ const swaggerOptions = {
       title: "Hands and Hope API",
       version: "1.0.0",
       description:
-        "API documentation for Hands and Hope (auth, products, sellers, buyers, dashboard).",
+        "API documentation for Hands and Hope (Auth, Products, Sellers, Buyers, Dashboard, Inquiries, Caregivers, Orders, Refunds, and Uploads). Use the Authorize button to insert your JWT Bearer token.",
     },
     servers: [
       {
-        url: "https://handsandhope-31gp.onrender.com", // Render production URL
+        url: "http://localhost:5000", // local dev
+        description: "Local Development Server"
       },
       {
-        url: "http://localhost:5000", // local dev
+        url: "https://handsandhope-31gp.onrender.com", // Render production URL
+        description: "Production Server"
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Enter your JWT token obtained from /api/auth/login or /api/buyers/login",
+        },
+      },
+    },
   },
   // Paths where swagger-jsdoc should look for JSDoc comments
   apis: [
@@ -57,6 +69,7 @@ const swaggerOptions = {
     "./routes/sellerRoutes.js",
     "./routes/buyerRoutes.js",
     "./routes/dashboardRoutes.js",
+    "./routes/uploadRoutes.js",
   ],
 };
 
@@ -72,8 +85,10 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 const corsOptions = {
   origin: [
     process.env.CLIENT_URL,
+    "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3002",
+    "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",
     "https://handsandhope-31gp.onrender.com", // backend (if needed)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { NotificationsPage } from './NotificationsPage';
@@ -113,21 +113,77 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     voiceNavigation,
     setVoiceNavigation,
   } = useAccessibility();
-  const [teachers, setTeachers] = useState(MOCK_TEACHERS);
-  const [students, setStudents] = useState(MOCK_STUDENTS);
-  const [pendingTeachers, setPendingTeachers] = useState(MOCK_PENDING_TEACHERS);
-  const [pendingStudents, setPendingStudents] = useState(MOCK_PENDING_STUDENTS);
-  const [teacherActivity, setTeacherActivity] = useState(MOCK_TEACHER_ACTIVITY);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [pendingTeachers, setPendingTeachers] = useState<any[]>([]);
+  const [pendingStudents, setPendingStudents] = useState<any[]>([]);
+  const [teacherActivity, setTeacherActivity] = useState<any[]>([]);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [expandedTeacher, setExpandedTeacher] = useState<string | null>(null);
   const [selectedTeacherForActivity, setSelectedTeacherForActivity] = useState<string | null>(null);
   const [messageRecipient, setMessageRecipient] = useState<{type: 'teacher' | 'student', id: string, name: string} | null>(null);
+  const [schoolInfo, setSchoolInfo] = useState<any>(null);
+
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
+
+  const fetchSchoolData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [ovRes, tRes, sRes, aRes, actRes] = await Promise.all([
+        fetch(`${API_URL}/api/dashboard/school/overview`, { headers }),
+        fetch(`${API_URL}/api/dashboard/school/teachers`, { headers }),
+        fetch(`${API_URL}/api/dashboard/school/students`, { headers }),
+        fetch(`${API_URL}/api/dashboard/school/approvals`, { headers }),
+        fetch(`${API_URL}/api/dashboard/school/activities`, { headers }),
+      ]);
+
+      if (ovRes.ok) {
+        const ovData = await ovRes.json();
+        setSchoolInfo(ovData.school);
+      }
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        if (Array.isArray(tData)) setTeachers(tData);
+      }
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (Array.isArray(sData)) setStudents(sData);
+      }
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        if (Array.isArray(aData.pendingTeachers)) setPendingTeachers(aData.pendingTeachers);
+        if (Array.isArray(aData.pendingStudents)) setPendingStudents(aData.pendingStudents);
+      }
+      if (actRes.ok) {
+        const actData = await actRes.json();
+        if (Array.isArray(actData)) setTeacherActivity(actData);
+      }
+    } catch (err) {
+      console.error('Failed to load school dashboard data:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSchoolData();
+  }, []);
 
   const fontSizeClass = fontSize === 'large' ? 'text-lg' : fontSize === 'extra-large' ? 'text-xl' : '';
 
   // Approval handlers
-  const handleApproveTeacher = (id: string) => {
+  const handleApproveTeacher = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/school/teachers/${id}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchSchoolData();
+    } catch (err) {
+      console.error(err);
+    }
     const teacher = pendingTeachers.find(t => t.id === id);
     if (teacher) {
       setPendingTeachers(pendingTeachers.filter(t => t.id !== id));
@@ -143,13 +199,34 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     }
   };
 
-  const handleRejectTeacher = (id: string, reason: string) => {
+  const handleRejectTeacher = async (id: string, reason: string) => {
     if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/school/teachers/${id}/reject`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+        fetchSchoolData();
+      } catch (err) {
+        console.error(err);
+      }
       setPendingTeachers(pendingTeachers.filter(t => t.id !== id));
     }
   };
 
-  const handleApproveStudent = (id: string) => {
+  const handleApproveStudent = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/school/students/${id}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchSchoolData();
+    } catch (err) {
+      console.error(err);
+    }
     const student = pendingStudents.find(s => s.id === id);
     if (student) {
       setPendingStudents(pendingStudents.filter(s => s.id !== id));
@@ -167,14 +244,35 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     }
   };
 
-  const handleRejectStudent = (id: string, reason: string) => {
+  const handleRejectStudent = async (id: string, reason: string) => {
     if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/school/students/${id}/reject`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+        fetchSchoolData();
+      } catch (err) {
+        console.error(err);
+      }
       setPendingStudents(pendingStudents.filter(s => s.id !== id));
     }
   };
 
-  const handleBanTeacher = (teacherId: string, reason: string) => {
+  const handleBanTeacher = async (teacherId: string, reason: string) => {
     if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/school/teachers/${teacherId}/ban`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+      } catch (err) {
+        console.error(err);
+      }
       setTeachers(teachers.map(t => 
         t.id === teacherId 
           ? { ...t, status: 'banned', banReason: reason, bannedDate: new Date().toISOString().split('T')[0] }
@@ -183,7 +281,16 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     }
   };
 
-  const handleUnbanTeacher = (teacherId: string) => {
+  const handleUnbanTeacher = async (teacherId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/school/teachers/${teacherId}/unban`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error(err);
+    }
     setTeachers(teachers.map(t => 
       t.id === teacherId 
         ? { ...t, status: 'active', banReason: undefined, bannedDate: undefined }
@@ -191,8 +298,18 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     ));
   };
 
-  const handleBanStudent = (studentId: string, reason: string) => {
+  const handleBanStudent = async (studentId: string, reason: string) => {
     if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/school/students/${studentId}/ban`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+      } catch (err) {
+        console.error(err);
+      }
       setStudents(students.map(s => 
         s.id === studentId 
           ? { ...s, status: 'banned', banReason: reason, bannedDate: new Date().toISOString().split('T')[0] }
@@ -201,7 +318,16 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     }
   };
 
-  const handleUnbanStudent = (studentId: string) => {
+  const handleUnbanStudent = async (studentId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/school/students/${studentId}/unban`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error(err);
+    }
     setStudents(students.map(s => 
       s.id === studentId 
         ? { ...s, status: 'active', banReason: undefined, bannedDate: undefined }
@@ -209,11 +335,30 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
     ));
   };
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string, subject?: string) => {
     if (messageRecipient && message.trim()) {
-      // In a real app, this would send the message to the backend
-      alert(`Message sent to ${messageRecipient.name}: ${message}`);
-      setMessageRecipient(null);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/school/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            recipientId: messageRecipient.id,
+            recipientType: messageRecipient.type,
+            subject: subject || 'Message from school',
+            message,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to send message');
+        alert(`Message sent to ${messageRecipient.name}.`);
+        setMessageRecipient(null);
+      } catch (err: any) {
+        alert(err.message || 'Failed to send message');
+      }
     }
   };
 
@@ -1295,7 +1440,8 @@ export function SchoolDashboard({ onLogout }: SchoolDashboardProps) {
                     size="lg"
                     onClick={() => {
                       const messageBody = (document.getElementById('messageBody') as HTMLTextAreaElement).value;
-                      handleSendMessage(messageBody);
+                      const messageSubject = (document.getElementById('messageSubject') as HTMLInputElement).value;
+                      handleSendMessage(messageBody, messageSubject);
                     }}
                   >
                     <Send className="h-4 w-4 mr-2" />

@@ -22,6 +22,9 @@ const buyerSchema = new mongoose.Schema(
     phoneNumber: {
       type: String,
     },
+    address: {
+      type: String,
+    },
     preferences: {
       categories: [String],
       priceRange: {

@@ -100,10 +100,10 @@ export default function TeamPage({ isLoggedIn, currentUser, onLogout, accessibil
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
       <Sidebar selectedCategories={selectedCategories} onCategoryChange={setSelectedCategories} />
       
-      <div className="flex-1">
+      <div className="flex-1 min-w-0 flex flex-col">
         <Header 
           isLoggedIn={isLoggedIn} 
           currentUser={currentUser} 

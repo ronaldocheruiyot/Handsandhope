@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Bell, Lock, User, Globe, Shield, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SettingsPageProps {
   userRole: 'seller' | 'teacher' | 'student' | 'school';
@@ -28,12 +29,12 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'https://handsandhope-31gp.onrender.com';
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000';
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
         const res = await fetch(`${API_URL}/api/dashboard/settings`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -65,8 +66,8 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
 
   const handleSaveAccount = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/settings`, {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -81,15 +82,21 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
           }
         })
       });
+      if (res.ok) {
+        toast.success('Account settings saved successfully!');
+      } else {
+        toast.error('Failed to save account settings');
+      }
     } catch (error) {
       console.error('Save account error:', error);
+      toast.error('Error saving account settings');
     }
   };
 
   const handleSaveNotifications = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/settings`, {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -104,15 +111,21 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
           }
         })
       });
+      if (res.ok) {
+        toast.success('Notification preferences updated!');
+      } else {
+        toast.error('Failed to update notification preferences');
+      }
     } catch (error) {
       console.error('Save notifications error:', error);
+      toast.error('Error saving notification preferences');
     }
   };
 
   const handleSaveRegional = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/settings`, {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -122,18 +135,34 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
           regional: { language, timezone }
         })
       });
+      if (res.ok) {
+        toast.success('Regional preferences updated!');
+      } else {
+        toast.error('Failed to update regional preferences');
+      }
     } catch (error) {
       console.error('Save regional error:', error);
+      toast.error('Error saving regional preferences');
     }
   };
 
   const handleUpdatePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) return;
-    if (newPassword !== confirmPassword) return;
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
 
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/settings/password`, {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/settings/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -142,11 +171,18 @@ export function SettingsPage({ userRole, highContrast }: SettingsPageProps) {
         body: JSON.stringify({ currentPassword, newPassword })
       });
 
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      if (res.ok) {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        toast.success('Password changed successfully!');
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to update password');
+      }
     } catch (error) {
       console.error('Update password error:', error);
+      toast.error('Error updating password');
     }
   };
 

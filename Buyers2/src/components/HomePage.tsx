@@ -4,160 +4,99 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import ProductCard from './ProductCard';
 import { Button } from './ui/button';
-import { ShoppingBag } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { ShoppingBag, Sparkles, TrendingUp, Heart, Loader2 } from 'lucide-react';
 import heroImage from 'figma:asset/d2fb7d885d1d47742f3ffd01a5bcc98de3caebce.png';
 import { AccessibilitySettings } from './AccessibilityMenu';
+import { api } from '../services/api';
 
 interface HomePageProps {
   isLoggedIn: boolean;
   currentUser?: any;
   onLogout: () => void;
+  cart?: any[];
+  onAddToCart?: (product: any) => void;
   accessibilitySettings?: AccessibilitySettings;
   onAccessibilityChange?: (settings: AccessibilitySettings) => void;
 }
 
-// Mock product data
-const allProducts = [
-  {
-    id: 1,
-    name: 'Handmade Wooden Chair',
-    price: 89.99,
-    category: 'Furniture',
-    image: 'https://images.unsplash.com/photo-1503602642458-232111445657?w=400',
-    seller: 'Hope Valley School',
-    rating: 4.8,
-    reviewCount: 24,
-    description: 'Beautiful handcrafted wooden chair with traditional design'
-  },
-  {
-    id: 2,
-    name: 'Cotton T-Shirt',
-    price: 24.99,
-    category: 'Textiles',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
-    seller: 'Bright Future Academy',
-    rating: 4.6,
-    reviewCount: 18,
-    description: 'Comfortable 100% cotton t-shirt, handmade with care'
-  },
-  {
-    id: 3,
-    name: 'Ceramic Bowl Set',
-    price: 45.99,
-    category: 'Handmade Crafts',
-    image: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=400',
-    seller: 'Creative Minds Institute',
-    rating: 4.9,
-    reviewCount: 32,
-    description: 'Set of 4 handmade ceramic bowls with unique glazing'
-  },
-  {
-    id: 4,
-    name: 'Knitted Scarf',
-    price: 34.99,
-    category: 'Wearables',
-    image: 'https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=400',
-    seller: 'Hope Valley School',
-    rating: 4.7,
-    reviewCount: 15,
-    description: 'Warm wool scarf, hand-knitted with love'
-  },
-  {
-    id: 5,
-    name: 'Wooden Cutting Board',
-    price: 39.99,
-    category: 'Handmade Crafts',
-    image: 'https://images.unsplash.com/photo-1565084888279-aca607ecce0c?w=400',
-    seller: 'Bright Future Academy',
-    rating: 4.8,
-    reviewCount: 28,
-    description: 'Durable hardwood cutting board with natural finish'
-  },
-  {
-    id: 6,
-    name: 'Canvas Tote Bag',
-    price: 19.99,
-    category: 'Textiles',
-    image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=400',
-    seller: 'Creative Minds Institute',
-    rating: 4.5,
-    reviewCount: 21,
-    description: 'Eco-friendly canvas bag with hand-painted design'
-  },
-  {
-    id: 7,
-    name: 'Abstract Painting',
-    price: 129.99,
-    category: 'Art',
-    image: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=400',
-    seller: 'Hope Valley School',
-    rating: 4.9,
-    reviewCount: 12,
-    description: 'Original abstract artwork on canvas'
-  },
-  {
-    id: 8,
-    name: 'Leather Wallet',
-    price: 49.99,
-    category: 'Wearables',
-    image: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=400',
-    seller: 'Bright Future Academy',
-    rating: 4.7,
-    reviewCount: 19,
-    description: 'Handcrafted leather wallet with multiple card slots'
-  }
-];
-
-export default function HomePage({ isLoggedIn, currentUser, onLogout, accessibilitySettings, onAccessibilityChange }: HomePageProps) {
+export default function HomePage({ 
+  isLoggedIn, 
+  currentUser, 
+  onLogout, 
+  cart = [], 
+  onAddToCart = () => {}, 
+  accessibilitySettings, 
+  onAccessibilityChange 
+}: HomePageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState(allProducts);
+  const [products, setProducts] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showHero, setShowHero] = useState(true);
-  const [cartItems, setCartItems] = useState<number[]>([]);
   const navigate = useNavigate();
 
+  const cartItemIds = cart.map((item) => String(item.id || item._id));
+
+  // Fetch live products and recommendations from backend
   useEffect(() => {
-    filterProducts();
+    let isMounted = true;
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [prodList, recList] = await Promise.all([
+          api.getProducts({ 
+            category: selectedCategories.length === 1 ? selectedCategories[0] : undefined,
+            search: searchQuery || undefined 
+          }),
+          api.getRecommendations({ 
+            category: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
+            limit: 4 
+          })
+        ]);
+
+        if (isMounted) {
+          setProducts(Array.isArray(prodList) ? prodList : []);
+          setRecommendations(Array.isArray(recList) ? recList : []);
+        }
+      } catch (err) {
+        console.error('Failed to load marketplace products:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selectedCategories, searchQuery]);
 
-  const filterProducts = () => {
-    let filtered = allProducts;
-
-    if (selectedCategories.length > 0) {
-      filtered = filtered.filter(product => 
-        selectedCategories.includes(product.category)
-      );
-    }
-
-    if (searchQuery.trim() !== '') {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.seller.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredProducts(filtered);
-    if (searchQuery.trim() !== '' || selectedCategories.length > 0) {
-      setShowHero(false);
-    }
-  };
-
   const handleSearch = () => {
-    filterProducts();
+    // Search is handled reactively via useEffect on searchQuery
   };
 
-  const handleAddToCart = (productId: number) => {
-    if (!cartItems.includes(productId)) {
-      setCartItems([...cartItems, productId]);
-    }
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    setSearchQuery('');
+    setShowHero(true);
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar selectedCategories={selectedCategories} onCategoryChange={setSelectedCategories} />
+    <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
+      {/* Left Navigation Sidebar */}
+      <Sidebar 
+        selectedCategories={selectedCategories} 
+        onCategoryChange={(cats) => {
+          setSelectedCategories(cats);
+          if (cats.length > 0) setShowHero(false);
+        }} 
+      />
       
-      <div className="flex-1">
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0 flex flex-col">
         <Header 
           isLoggedIn={isLoggedIn} 
           currentUser={currentUser} 
@@ -165,64 +104,164 @@ export default function HomePage({ isLoggedIn, currentUser, onLogout, accessibil
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onSearch={handleSearch}
-          cartItemCount={cartItems.length}
+          cartItemCount={cart.reduce((sum, item) => sum + (item.quantity || 1), 0)}
           accessibilitySettings={accessibilitySettings}
           onAccessibilityChange={onAccessibilityChange}
         />
 
-        <main id="main-content" className="p-6" role="main">
+        <main id="main-content" className="p-4 sm:p-6 max-w-7xl mx-auto w-full" role="main">
+          {/* Contained Hero Section */}
           {showHero && (
             <section 
-              className="relative rounded-lg overflow-hidden mb-8"
+              className="relative rounded-2xl overflow-hidden mb-8 shadow-lg bg-[#1e2875] border border-blue-900"
               aria-labelledby="hero-title"
             >
+              {/* Subtle Background Pattern */}
               <div 
-                className="absolute inset-0"
+                className="absolute inset-0 opacity-20"
                 style={{ 
                   backgroundImage: `url(${heroImage})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
                 }}
               ></div>
-              <div className="absolute inset-0 bg-black/60"></div>
-              <div className="relative z-10 p-16 text-center">
-                <h2 id="hero-title" className="text-white mb-4">
-                  Welcome to Hands and Hope
-                </h2>
-                <p className="text-white mb-8 max-w-3xl mx-auto">
-                  Discover amazing products from trusted sellers around the world. Your one-stop destination for quality trade.
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-950/95 via-[#1e2875]/90 to-indigo-950/85"></div>
+              
+              <div className="relative z-10 p-8 md:p-12 text-center max-w-3xl mx-auto">
+                <Badge className="bg-yellow-400 text-indigo-950 font-bold px-3.5 py-1 mb-3 text-xs tracking-wider uppercase shadow-xs">
+                  🌟 Empowering Disability Artisans & Special Needs Schools
+                </Badge>
+                <h1 id="hero-title" className="text-white text-2xl md:text-4xl font-extrabold mb-3 tracking-tight leading-tight">
+                  Handcrafted with Heart. Built with Hope.
+                </h1>
+                <p className="text-blue-100 text-sm md:text-base mb-6 leading-relaxed">
+                  Directly discover and support genuine handmade creations, woodwork, beaded jewelry, and textiles crafted by inspiring artisans with disabilities and inclusive schools.
                 </p>
-                <Button 
-                  onClick={() => setShowHero(false)}
-                  className="bg-[#1e2875] hover:bg-[#2a3490] text-white px-8 py-6 shadow-lg"
-                  aria-label="Start shopping"
-                >
-                  <ShoppingBag className="mr-2" size={20} aria-hidden="true" />
-                  Start Shopping
-                </Button>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <Button 
+                    onClick={() => {
+                      const el = document.getElementById('marketplace-products');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-indigo-950 font-bold px-6 py-5 rounded-xl shadow-md transition-transform hover:scale-105 text-sm"
+                    aria-label="Start shopping"
+                  >
+                    <ShoppingBag className="mr-2" size={18} aria-hidden="true" />
+                    Explore Marketplace
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate('/schools')}
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-xs px-6 py-5 rounded-xl font-semibold text-sm"
+                    aria-label="Learn about schools"
+                  >
+                    🏫 Partner Schools
+                  </Button>
+                </div>
               </div>
             </section>
           )}
 
-          <section aria-labelledby="products-title">
-            <h2 id="products-title" className="text-[#1e2875] mb-6">
-              {searchQuery || selectedCategories.length > 0 ? 'Search Results' : 'Featured Products'}
-            </h2>
+          {/* Active Filter Indicators */}
+          {(selectedCategories.length > 0 || searchQuery) && (
+            <div className="mb-6 flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
+                {selectedCategories.map((cat) => (
+                  <Badge key={cat} variant="secondary" className="bg-indigo-100 text-[#1e2875] font-medium text-xs px-3 py-1">
+                    Category: {cat}
+                  </Badge>
+                ))}
+                {searchQuery && (
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-900 font-medium text-xs px-3 py-1">
+                    Search: "{searchQuery}"
+                  </Badge>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50">
+                Clear all
+              </Button>
+            </div>
+          )}
 
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-16" role="status">
-                <p className="text-gray-500">No products found matching your criteria.</p>
+          {/* Recommended Section */}
+          {recommendations.length > 0 && !searchQuery && (
+            <section className="mb-10" aria-labelledby="recommendations-title">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="text-yellow-500 fill-yellow-500" size={20} />
+                  <h2 id="recommendations-title" className="text-lg md:text-xl font-bold text-[#1e2875]">
+                    Recommended Artisan Creations
+                  </h2>
+                </div>
+                <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2.5 py-1 rounded-full">
+                  AI Boosted
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {recommendations.map((product) => {
+                  const prodId = String(product._id || product.id);
+                  return (
+                    <ProductCard
+                      key={prodId}
+                      product={{ ...product, id: prodId }}
+                      isInCart={cartItemIds.includes(prodId)}
+                      onAddToCart={onAddToCart}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* All / Filtered Products Grid */}
+          <section id="marketplace-products" aria-labelledby="products-title">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="text-[#1e2875]" size={20} />
+                <h2 id="products-title" className="text-lg md:text-xl font-bold text-[#1e2875]">
+                  {selectedCategories.length > 0
+                    ? `Crafts in ${selectedCategories.join(', ')}`
+                    : searchQuery
+                    ? `Results for "${searchQuery}"`
+                    : 'All Handcrafted Marketplace Items'}
+                </h2>
+              </div>
+              <span className="text-xs text-gray-500 font-medium">
+                {products.length} {products.length === 1 ? 'item' : 'items'} available
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
+                <Loader2 size={36} className="animate-spin text-[#1e2875]" />
+                <p className="text-sm font-medium">Loading authentic artisan creations...</p>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+                <Heart size={44} className="mx-auto mb-3 text-gray-300" />
+                <h3 className="text-base font-bold text-gray-800 mb-1">No products found</h3>
+                <p className="text-xs text-gray-500 mb-4 max-w-sm mx-auto">
+                  Try clearing your search query or selecting a different craft category.
+                </p>
+                <Button onClick={clearFilters} className="bg-[#1e2875] hover:bg-[#2a3490] text-white text-xs px-4 py-2 rounded-lg">
+                  View All Products
+                </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product}
-                    onAddToCart={handleAddToCart}
-                    isInCart={cartItems.includes(product.id)}
-                  />
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {products.map((product) => {
+                  const prodId = String(product._id || product.id);
+                  return (
+                    <ProductCard
+                      key={prodId}
+                      product={{ ...product, id: prodId }}
+                      isInCart={cartItemIds.includes(prodId)}
+                      onAddToCart={onAddToCart}
+                    />
+                  );
+                })}
               </div>
             )}
           </section>

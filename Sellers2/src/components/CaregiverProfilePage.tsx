@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Mail, Phone, MapPin, Calendar, User, Heart, Save, Edit2, Upload, Users, Clock, Bell, Shield, UserCheck, AlertCircle, Lock, Download, FileText, Filter, Search, X, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Switch } from './ui/switch';
 import { Alert, AlertDescription } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ManagedAccount {
   accountId: string;
@@ -60,15 +61,16 @@ interface CaregiverProfilePageProps {
 }
 
 export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProps) {
+  const { user, updateUser } = useAuth();
   const [profileData, setProfileData] = useState<CaregiverProfileData>(caregiverData || {
     caregiverId: 'CG-2024-001',
-    fullName: 'Maria Garcia',
-    email: 'maria.garcia@email.com',
-    phone: '+1 (555) 987-6543',
-    address: '456 Maple Drive, Los Angeles, CA 90001',
+    fullName: user?.name || 'Maria Garcia',
+    email: user?.email || 'maria.garcia@email.com',
+    phone: user?.phone || '+1 (555) 987-6543',
+    address: user?.address || '456 Maple Drive, Los Angeles, CA 90001',
     relationshipType: 'Parent',
     joinDate: 'March 15, 2024',
-    profilePhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mariagarcia',
+    profilePhoto: user?.profilePhoto || 'https://api.dicebear.com/7.x/avataaars/svg?seed=mariagarcia',
     emergencyContact: {
       name: 'Carlos Garcia',
       phone: '+1 (555) 987-6544',
@@ -105,8 +107,40 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
 
   const [isEditing, setIsEditing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(profileData.profilePhoto);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState(profileData.notificationPreferences);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000';
+
+  useEffect(() => {
+    const fetchCaregiverProfile = async () => {
+      try {
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(`${API_URL}/api/dashboard/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.profile) {
+            setProfileData((prev) => ({
+              ...prev,
+              fullName: data.profile.name || prev.fullName,
+              email: data.profile.email || prev.email,
+              phone: data.profile.phone || prev.phone,
+              address: data.profile.address || prev.address,
+              profilePhoto: data.profile.profilePhoto || prev.profilePhoto,
+            }));
+            setProfilePhoto(data.profile.profilePhoto || profileData.profilePhoto);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading caregiver profile:', err);
+      }
+    };
+    fetchCaregiverProfile();
+  }, [API_URL]);
 
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -166,6 +200,7 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfilePhoto(reader.result as string);
@@ -174,14 +209,70 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
     }
   };
 
-  const handleSave = () => {
-    // In a real app, this would save to backend
-    setProfileData({
-      ...profileData,
-      notificationPreferences: notificationPrefs
-    });
-    setIsEditing(false);
-    alert('Profile updated successfully!');
+  const handleSave = async () => {
+    try {
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      let uploadedPhoto = profilePhoto;
+
+      if (photoFile) {
+        const form = new FormData();
+        form.append('files', photoFile);
+        const uploadRes = await fetch(`${API_URL}/api/uploads`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          const photoUrl = uploadData.files?.[0]?.url || uploadData.url;
+          if (photoUrl) {
+            uploadedPhoto = photoUrl.startsWith('http') 
+              ? photoUrl 
+              : `${API_URL}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`;
+          }
+        }
+      }
+
+      const payload = {
+        name: profileData.fullName,
+        email: profileData.email,
+        phone: profileData.phone,
+        address: profileData.address,
+        profilePhoto: uploadedPhoto,
+      };
+
+      if (token) {
+        await fetch(`${API_URL}/api/dashboard/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      setProfileData({
+        ...profileData,
+        profilePhoto: uploadedPhoto,
+        notificationPreferences: notificationPrefs
+      });
+
+      updateUser({
+        name: profileData.fullName,
+        email: profileData.email,
+        phone: profileData.phone,
+        address: profileData.address,
+        profilePhoto: uploadedPhoto,
+      });
+
+      setPhotoFile(null);
+      setIsEditing(false);
+      alert('Caregiver profile updated successfully!');
+    } catch (err: any) {
+      console.error('Error saving caregiver profile:', err);
+      alert('Failed to save profile changes');
+    }
   };
 
   const getCategoryIcon = (category: string) => {
@@ -212,7 +303,7 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
     setPasswordStrength(calculatePasswordStrength(pwd));
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       alert('Please fill in all password fields');
       return;
@@ -225,12 +316,26 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
       alert('Password is too weak. Please use a stronger password.');
       return;
     }
-    // In real app, this would call backend API
-    alert('Password changed successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordStrength(0);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+      const res = await fetch(`${API_URL}/api/dashboard/settings/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to change password');
+      alert('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordStrength(0);
+    } catch (err: any) {
+      alert(err.message || 'Failed to change password');
+    }
   };
 
   // Filter activities
@@ -335,17 +440,21 @@ export function CaregiverProfilePage({ caregiverData }: CaregiverProfilePageProp
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col items-center space-y-4">
-              <div className="relative">
-                <Avatar className="h-40 w-40 border-4 border-purple-100">
-                  <AvatarImage src={profilePhoto} alt={`${profileData.fullName}'s profile photo`} />
-                  <AvatarFallback className="text-4xl bg-purple-100 text-purple-700">
-                    {profileData.fullName.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
+              <div className="relative w-44 h-44 rounded-full flex items-center justify-center p-1">
+                <div className="w-40 h-40 rounded-full border-4 border-white shadow-xl ring-4 ring-purple-100 bg-gray-100 overflow-hidden flex items-center justify-center">
+                  {profilePhoto ? (
+                    <img src={profilePhoto} alt={`${profileData.fullName}'s profile`} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-purple-600 text-white text-4xl font-bold">
+                      {profileData.fullName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                    </div>
+                  )}
+                </div>
                 {isEditing && (
                   <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 flex h-12 w-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-transform hover:scale-110"
+                    className="absolute bottom-1 right-2 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg ring-4 ring-white hover:bg-purple-700 transition-transform hover:scale-110 cursor-pointer"
                     aria-label="Upload new photo"
                   >
                     <Camera className="h-6 w-6" />

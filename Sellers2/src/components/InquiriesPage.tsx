@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageSquare, Search, Filter, Reply, Archive, Trash2, Clock, CheckCircle } from 'lucide-react';
+import { MessageSquare, Search, Filter, Reply, Archive, Trash2, Clock, CheckCircle, Plus, Send, User, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -7,9 +7,19 @@ import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
+import { api } from '../services/api';
+import { toast } from 'sonner';
+
+interface InquiryReply {
+  message: string;
+  responder?: 'seller' | 'buyer' | 'caregiver';
+  timestamp?: string;
+}
 
 interface Inquiry {
   id: string;
+  _id?: string;
   customerName: string;
   customerEmail: string;
   customerAvatar?: string;
@@ -19,121 +29,63 @@ interface Inquiry {
   timestamp: string;
   status: 'pending' | 'replied' | 'archived';
   priority: 'low' | 'medium' | 'high';
+  replies?: InquiryReply[];
 }
 
 interface InquiriesPageProps {
-  highContrast: boolean;
+  highContrast?: boolean;
+  canRespond?: boolean;
+  targetAccountId?: string;
+  accountOwnerName?: string;
 }
 
-const INITIAL_INQUIRIES: Inquiry[] = [
-  {
-    id: '1',
-    customerName: 'Sarah Johnson',
-    customerEmail: 'sarah.j@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-    productName: 'Handmade Ceramic Bowl',
-    productImage: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=100',
-    message: 'Hi! I love this ceramic bowl. Is it dishwasher safe? Also, do you offer international shipping? I\'m located in Canada.',
-    timestamp: '2 hours ago',
-    status: 'pending',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    customerName: 'Michael Chen',
-    customerEmail: 'michael.chen@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=michael',
-    productName: 'Watercolor Landscape Painting',
-    productImage: 'https://images.unsplash.com/photo-1547891654-e66ed7ebb968?w=100',
-    message: 'Beautiful work! Could you tell me more about the paper quality? Is this piece signed?',
-    timestamp: '5 hours ago',
-    status: 'pending',
-    priority: 'medium',
-  },
-  {
-    id: '3',
-    customerName: 'Emily Rodriguez',
-    customerEmail: 'emily.r@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=emily',
-    productName: 'Sterling Silver Bracelet',
-    productImage: 'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=100',
-    message: 'I\'m interested in this bracelet. What size is it? Can it be adjusted?',
-    timestamp: '1 day ago',
-    status: 'replied',
-    priority: 'medium',
-  },
-  {
-    id: '4',
-    customerName: 'David Kim',
-    customerEmail: 'david.kim@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=david',
-    productName: 'Woven Wall Hanging',
-    productImage: 'https://images.unsplash.com/photo-1566206091558-7f218b696731?w=100',
-    message: 'Would you be able to create a custom size version of this? I need something about 3 feet wide.',
-    timestamp: '1 day ago',
-    status: 'pending',
-    priority: 'low',
-  },
-  {
-    id: '5',
-    customerName: 'Jessica Martinez',
-    customerEmail: 'jessica.m@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jessica',
-    productName: 'Handmade Greeting Cards Set',
-    productImage: 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?w=100',
-    message: 'These cards are perfect! Do you offer bulk discounts? I need about 20 sets for a corporate event.',
-    timestamp: '2 days ago',
-    status: 'replied',
-    priority: 'high',
-  },
-  {
-    id: '6',
-    customerName: 'Robert Taylor',
-    customerEmail: 'robert.t@email.com',
-    customerAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=robert',
-    productName: 'Clay Sculpture - Abstract',
-    productImage: 'https://images.unsplash.com/photo-1533158326339-7f3cf2404354?w=100',
-    message: 'Stunning piece! Is this still available? I\'d like to purchase it as a gift.',
-    timestamp: '3 days ago',
-    status: 'archived',
-    priority: 'low',
-  },
-];
-
-export function InquiriesPage({ highContrast }: InquiriesPageProps) {
+export function InquiriesPage({ highContrast = false, canRespond = true, targetAccountId, accountOwnerName }: InquiriesPageProps) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'replied' | 'archived'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [replyText, setReplyText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isReplying, setIsReplying] = useState(false);
 
-  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000';
+  // Compose Modal State
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [composeBuyerName, setComposeBuyerName] = useState('Jane Mwangi');
+  const [composeBuyerEmail, setComposeBuyerEmail] = useState('buyer.jane@example.com');
+  const [composeProductName, setComposeProductName] = useState('');
+  const [composeMessage, setComposeMessage] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
+
+  const fetchInquiries = async () => {
+    try {
+      setIsLoading(true);
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      if (!token) return;
+
+      const data = await api.getInquiries(token, targetAccountId);
+
+      const mapped = (data || []).map((item: any) => ({
+        ...item,
+        id: item.id || item._id,
+        timestamp: item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Recent',
+        replies: item.replies || []
+      }));
+
+      setInquiries(mapped);
+      if (selectedInquiry) {
+        const updatedSelected = mapped.find((m: any) => m.id === selectedInquiry.id);
+        if (updatedSelected) setSelectedInquiry(updatedSelected);
+      }
+    } catch (error) {
+      console.error('Error fetching inquiries:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchInquiries = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/api/dashboard/inquiries`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-
-        const mapped = (data || []).map((item: any) => ({
-          ...item,
-          timestamp: item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Unknown'
-        }));
-
-        setInquiries(mapped);
-      } catch (error) {
-        console.error('Error fetching inquiries:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchInquiries();
-  }, [API_URL]);
+  }, [targetAccountId]);
 
   const filteredInquiries = inquiries.filter(inquiry => {
     const matchesFilter = filter === 'all' || inquiry.status === filter;
@@ -151,64 +103,66 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
     if (!selectedInquiry || !replyText.trim()) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/dashboard/inquiries/${selectedInquiry.id}/reply`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ message: replyText })
-      });
-      if (!res.ok) return;
+      setIsReplying(true);
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      if (!token) return;
 
-      setInquiries(inquiries.map(i =>
-        i.id === selectedInquiry.id ? { ...i, status: 'replied' as const } : i
-      ));
+      await api.replyInquiry(selectedInquiry.id, replyText, token, targetAccountId);
+      
+      const newReply = {
+        message: replyText,
+        responder: 'seller' as const,
+        timestamp: new Date().toISOString()
+      };
+
+      const updated = inquiries.map(i =>
+        i.id === selectedInquiry.id 
+          ? { ...i, status: 'replied' as const, replies: [...(i.replies || []), newReply] } 
+          : i
+      );
+      
+      setInquiries(updated);
+      setSelectedInquiry(prev => prev ? { ...prev, status: 'replied', replies: [...(prev.replies || []), newReply] } : null);
       setReplyText('');
-      alert('Reply sent successfully!');
-    } catch (error) {
+      toast.success('Reply sent successfully!');
+    } catch (error: any) {
       console.error('Reply error:', error);
+      toast.error(error.message || 'Failed to send reply');
+    } finally {
+      setIsReplying(false);
     }
   };
 
-  const handleArchive = async (id: string) => {
+  const handleCreateInquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!composeMessage.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/dashboard/inquiries/${id}/archive`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return;
+      setIsComposing(true);
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+      if (!token) return;
 
-      setInquiries(inquiries.map(i =>
-        i.id === id ? { ...i, status: 'archived' as const } : i
-      ));
-      if (selectedInquiry?.id === id) {
-        setSelectedInquiry(null);
-      }
-    } catch (error) {
-      console.error('Archive error:', error);
-    }
-  };
+      await api.composeInquiry({
+        sellerId: targetAccountId,
+        buyerName: composeBuyerName,
+        buyerEmail: composeBuyerEmail,
+        productName: composeProductName || 'Artisan Craft',
+        message: composeMessage
+      }, token);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this inquiry?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/api/dashboard/inquiries/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) return;
-
-        setInquiries(inquiries.filter(i => i.id !== id));
-        if (selectedInquiry?.id === id) {
-          setSelectedInquiry(null);
-        }
-      } catch (error) {
-        console.error('Delete error:', error);
-      }
+      toast.success('Inquiry sent successfully!');
+      setShowComposeModal(false);
+      setComposeMessage('');
+      setComposeProductName('');
+      fetchInquiries();
+    } catch (error: any) {
+      console.error('Error creating inquiry:', error);
+      toast.error(error.message || 'Failed to create inquiry');
+    } finally {
+      setIsComposing(false);
     }
   };
 
@@ -228,11 +182,11 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Clock className="h-4 w-4" />;
+        return <Clock className="h-4 w-4 text-amber-500" />;
       case 'replied':
-        return <CheckCircle className="h-4 w-4" />;
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'archived':
-        return <Archive className="h-4 w-4" />;
+        return <Archive className="h-4 w-4 text-gray-500" />;
       default:
         return null;
     }
@@ -242,7 +196,7 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
     return (
       <Card className={highContrast ? 'border-2 border-white bg-black' : 'shadow-lg'}>
         <CardContent className="py-12 text-center">
-          <p className={highContrast ? 'text-gray-300' : 'text-gray-600'}>Loading inquiries...</p>
+          <p className={highContrast ? 'text-gray-300' : 'text-gray-600'}>Loading inquiries from database...</p>
         </CardContent>
       </Card>
     );
@@ -250,19 +204,26 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className={highContrast ? 'text-white' : 'text-gray-900'}>
-            Customer Inquiries
+          <h1 className="text-2xl font-bold">
+            Customer Inquiries {accountOwnerName && <span className="text-blue-600">({accountOwnerName})</span>}
           </h1>
-          <p className={`mt-1 ${highContrast ? 'text-gray-300' : 'text-gray-600'}`}>
+          <p className="text-sm text-gray-600 mt-1">
             {pendingCount} pending • {repliedCount} replied • {inquiries.length} total
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowComposeModal(true)} className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+            <Plus className="h-4 w-4" />
+            Compose / Test Inquiry
+          </Button>
         </div>
       </div>
 
       {/* Search and Filter */}
-      <Card className={highContrast ? 'border-2 border-white bg-black' : 'shadow-lg'}>
+      <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <div className="relative flex-1">
@@ -272,14 +233,14 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
                 placeholder="Search inquiries by customer or product..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 pl-10"
+                className="h-10 pl-10"
               />
             </div>
             <Tabs value={filter} onValueChange={(value) => setFilter(value as any)} className="w-full md:w-auto">
-              <TabsList className="grid w-full grid-cols-4 h-12">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="replied">Replied</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 h-10">
+                <TabsTrigger value="all">All ({inquiries.length})</TabsTrigger>
+                <TabsTrigger value="pending">Pending ({pendingCount})</TabsTrigger>
+                <TabsTrigger value="replied">Replied ({repliedCount})</TabsTrigger>
                 <TabsTrigger value="archived">Archived</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -288,64 +249,55 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
       </Card>
 
       {filteredInquiries.length === 0 ? (
-        <Card className={`${highContrast ? 'border-2 border-white bg-black' : 'border-0 shadow-lg'}`}>
+        <Card className="border-0 shadow-lg">
           <CardContent className="py-16">
             <div className="flex flex-col items-center justify-center text-center">
-              <div className={`mb-6 rounded-full ${highContrast ? 'bg-gray-800' : 'bg-gradient-to-br from-blue-100 to-purple-100'} p-8`}>
-                <MessageSquare className={`h-16 w-16 ${highContrast ? 'text-gray-500' : 'text-blue-600'}`} />
+              <div className="mb-4 rounded-full bg-blue-50 p-6">
+                <MessageSquare className="h-12 w-12 text-blue-600" />
               </div>
-              <h2 className={`mb-2 ${highContrast ? 'text-white' : 'text-gray-900'}`}>
-                No Inquiries Found
-              </h2>
-              <p className={`max-w-md ${highContrast ? 'text-gray-300' : 'text-gray-600'}`}>
-                {searchQuery ? 'Try a different search term' : 'Customer inquiries will appear here'}
+              <h2 className="text-xl font-semibold mb-1">No Inquiries Found</h2>
+              <p className="text-gray-500 max-w-md text-sm mb-4">
+                {searchQuery ? 'Try a different search query' : 'No customer inquiries yet. Click "Compose / Test Inquiry" to simulate buyer questions!'}
               </p>
+              <Button onClick={() => setShowComposeModal(true)} variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" /> Send Test Inquiry
+              </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-5">
           {/* Inquiries List */}
-          <div className="space-y-4 lg:col-span-2">
+          <div className="space-y-3 lg:col-span-2">
             {filteredInquiries.map((inquiry) => (
               <Card
                 key={inquiry.id}
-                className={`cursor-pointer transition-all hover:shadow-lg ${
-                  highContrast ? 'border-2 border-white bg-black' : 'shadow'
-                } ${selectedInquiry?.id === inquiry.id ? 'ring-2 ring-blue-600' : ''}`}
+                className={`cursor-pointer transition-all hover:shadow-md ${
+                  selectedInquiry?.id === inquiry.id ? 'ring-2 ring-blue-600 bg-blue-50/20' : ''
+                }`}
                 onClick={() => setSelectedInquiry(inquiry)}
               >
                 <CardContent className="p-4">
                   <div className="flex gap-3">
-                    <Avatar className="h-12 w-12 flex-shrink-0">
-                      <AvatarImage src={inquiry.customerAvatar} alt={inquiry.customerName} />
-                      <AvatarFallback>{inquiry.customerName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                      <AvatarFallback className="bg-purple-100 text-purple-700 font-semibold">
+                        {inquiry.customerName?.split(' ').map(n => n[0]).join('') || 'C'}
+                      </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h4 className={highContrast ? 'text-white' : 'text-gray-900'}>
-                            {inquiry.customerName}
-                          </h4>
-                          <p className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {inquiry.productName}
-                          </p>
-                        </div>
-                        <Badge className={getPriorityColor(inquiry.priority)}>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className="font-semibold text-sm truncate">{inquiry.customerName}</h4>
+                        <Badge className={`text-xs capitalize ${getPriorityColor(inquiry.priority)}`}>
                           {inquiry.priority}
                         </Badge>
                       </div>
-                      <p className={`line-clamp-2 text-sm ${highContrast ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {inquiry.message}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {inquiry.timestamp}
+                      <p className="text-xs font-medium text-blue-600 truncate">{inquiry.productName}</p>
+                      <p className="line-clamp-2 text-xs text-gray-600">{inquiry.message}</p>
+                      <div className="flex items-center justify-between pt-1 text-xs text-gray-400">
+                        <span>{inquiry.timestamp}</span>
+                        <span className="flex items-center gap-1 font-medium capitalize">
+                          {getStatusIcon(inquiry.status)} {inquiry.status}
                         </span>
-                        <Badge variant={inquiry.status === 'pending' ? 'default' : 'secondary'} className="gap-1">
-                          {getStatusIcon(inquiry.status)}
-                          {inquiry.status}
-                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -354,110 +306,102 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
             ))}
           </div>
 
-          {/* Inquiry Details */}
+          {/* Inquiry Details & Reply */}
           <div className="lg:col-span-3">
             <div className="sticky top-6">
               {selectedInquiry ? (
-                <Card className={highContrast ? 'border-2 border-white bg-black' : 'shadow-lg'}>
-                  <CardHeader className="border-b">
+                <Card className="shadow-lg">
+                  <CardHeader className="border-b pb-4">
                     <div className="flex items-start justify-between">
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 items-center">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={selectedInquiry.customerAvatar} alt={selectedInquiry.customerName} />
-                          <AvatarFallback>{selectedInquiry.customerName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          <AvatarFallback className="bg-purple-100 text-purple-700 font-bold text-lg">
+                            {selectedInquiry.customerName?.split(' ').map(n => n[0]).join('') || 'C'}
+                          </AvatarFallback>
                         </Avatar>
                         <div>
-                          <CardTitle className={highContrast ? 'text-white' : 'text-gray-900'}>
-                            {selectedInquiry.customerName}
-                          </CardTitle>
-                          <p className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {selectedInquiry.customerEmail}
-                          </p>
+                          <CardTitle className="text-lg">{selectedInquiry.customerName}</CardTitle>
+                          <p className="text-xs text-gray-500">{selectedInquiry.customerEmail}</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleArchive(selectedInquiry.id)}
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(selectedInquiry.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
+                      <Badge variant={selectedInquiry.status === 'replied' ? 'secondary' : 'default'} className="capitalize gap-1">
+                        {getStatusIcon(selectedInquiry.status)}
+                        {selectedInquiry.status}
+                      </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-6 p-6">
+
+                  <CardContent className="space-y-4 p-6">
                     {/* Product Info */}
-                    <div className="flex items-center gap-3 rounded-lg border p-3">
-                      <img 
-                        src={selectedInquiry.productImage} 
-                        alt={selectedInquiry.productName}
-                        className="h-16 w-16 rounded-lg object-cover"
-                      />
+                    <div className="flex items-center gap-3 rounded-lg border bg-gray-50 p-3">
+                      <div className="size-10 rounded bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                        🛍️
+                      </div>
                       <div>
-                        <p className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Product Inquiry
-                        </p>
-                        <p className={highContrast ? 'text-white' : 'text-gray-900'}>
-                          {selectedInquiry.productName}
-                        </p>
+                        <p className="text-xs text-gray-500">Inquiring about item:</p>
+                        <p className="font-semibold text-sm text-gray-900">{selectedInquiry.productName}</p>
                       </div>
                     </div>
 
-                    {/* Message */}
+                    {/* Customer Question Bubble */}
                     <div>
-                      <label className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Customer Message
-                      </label>
-                      <div className={`mt-2 rounded-lg border p-4 ${highContrast ? 'border-white' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className={highContrast ? 'text-white' : 'text-gray-900'}>
-                          {selectedInquiry.message}
-                        </p>
-                        <p className={`mt-2 text-sm ${highContrast ? 'text-gray-400' : 'text-gray-500'}`}>
-                          Received {selectedInquiry.timestamp}
-                        </p>
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Message</span>
+                      <div className="mt-1 rounded-lg border bg-white p-4 shadow-sm">
+                        <p className="text-gray-800 text-sm leading-relaxed">{selectedInquiry.message}</p>
+                        <p className="mt-2 text-xs text-gray-400">Received {selectedInquiry.timestamp}</p>
                       </div>
                     </div>
 
-                    {/* Reply Section */}
-                    <div>
-                      <label className={`text-sm ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Your Reply
-                      </label>
-                      <Textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Type your reply to the customer..."
-                        rows={4}
-                        className="mt-2 resize-none"
-                      />
-                    </div>
+                    {/* Reply Thread History */}
+                    {selectedInquiry.replies && selectedInquiry.replies.length > 0 && (
+                      <div className="space-y-2">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conversation History</span>
+                        {selectedInquiry.replies.map((reply, idx) => (
+                          <div key={idx} className="rounded-lg border bg-blue-50/50 p-3 ml-4 border-blue-200">
+                            <div className="flex items-center justify-between text-xs text-blue-700 font-medium mb-1">
+                              <span>💬 {reply.responder === 'caregiver' ? 'Caregiver Response' : 'Seller Response'}</span>
+                              <span>{reply.timestamp ? new Date(reply.timestamp).toLocaleTimeString() : 'Just now'}</span>
+                            </div>
+                            <p className="text-sm text-gray-900">{reply.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                    <div className="flex gap-3">
-                      <Button size="lg" className="flex-1 gap-2" onClick={handleReply}>
-                        <Reply className="h-5 w-5" />
-                        Send Reply
-                      </Button>
-                      <Button variant="outline" size="lg" onClick={() => handleArchive(selectedInquiry.id)}>
-                        Archive
-                      </Button>
-                    </div>
+                    {/* Compose Reply */}
+                    {canRespond ? (
+                      <div className="space-y-2 pt-2 border-t">
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Compose Response
+                        </label>
+                        <Textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Type your reply to the customer here..."
+                          rows={3}
+                          className="resize-none text-sm"
+                        />
+                        <Button 
+                          onClick={handleReply} 
+                          disabled={isReplying || !replyText.trim()}
+                          className="w-full gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                        >
+                          <Send className="h-4 w-4" />
+                          {isReplying ? 'Sending...' : 'Send Reply'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                        🔒 You have view-only access for inquiries on this account.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
-                <Card className={highContrast ? 'border-2 border-white bg-black' : 'shadow-lg'}>
-                  <CardContent className="flex flex-col items-center justify-center py-16">
-                    <MessageSquare className={`mb-4 h-16 w-16 ${highContrast ? 'text-gray-600' : 'text-gray-400'}`} />
-                    <p className={`text-center ${highContrast ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Select an inquiry to view details and reply
-                    </p>
+                <Card className="shadow-lg">
+                  <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+                    <MessageSquare className="h-14 w-14 text-gray-300 mb-3" />
+                    <p className="text-gray-500 font-medium text-sm">Select an inquiry from the left to read or send a reply</p>
                   </CardContent>
                 </Card>
               )}
@@ -465,6 +409,73 @@ export function InquiriesPage({ highContrast }: InquiriesPageProps) {
           </div>
         </div>
       )}
+
+      {/* Compose Inquiry Dialog */}
+      <Dialog open={showComposeModal} onOpenChange={setShowComposeModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="size-5 text-blue-600" />
+              Compose / Send Inquiry
+            </DialogTitle>
+            <DialogDescription>
+              Submit a customer inquiry to test store communications and caregiver responses.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateInquiry} className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-medium text-gray-700">Buyer Name</label>
+              <Input
+                value={composeBuyerName}
+                onChange={(e) => setComposeBuyerName(e.target.value)}
+                placeholder="e.g. Jane Mwangi"
+                className="mt-1"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700">Buyer Email</label>
+              <Input
+                type="email"
+                value={composeBuyerEmail}
+                onChange={(e) => setComposeBuyerEmail(e.target.value)}
+                placeholder="e.g. buyer.jane@example.com"
+                className="mt-1"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700">Product / Topic</label>
+              <Input
+                value={composeProductName}
+                onChange={(e) => setComposeProductName(e.target.value)}
+                placeholder="e.g. African Elephant Sculpture / Custom Pottery"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-700">Inquiry Message</label>
+              <Textarea
+                value={composeMessage}
+                onChange={(e) => setComposeMessage(e.target.value)}
+                placeholder="Ask about dimensions, materials, custom colors, shipping time..."
+                rows={4}
+                className="mt-1 resize-none"
+                required
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowComposeModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isComposing || !composeMessage.trim()} className="gap-2 bg-blue-600 text-white">
+                <Send className="size-4" />
+                {isComposing ? 'Sending...' : 'Send Inquiry'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

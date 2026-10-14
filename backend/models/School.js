@@ -11,6 +11,7 @@ const SchoolSchema = new mongoose.Schema({
     {
       url: String,
       filename: String,
+      storedName: String,
       mimeType: String,
       size: Number,
       verified: { type: Boolean, default: false },

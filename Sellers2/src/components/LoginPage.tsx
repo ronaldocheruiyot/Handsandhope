@@ -36,6 +36,7 @@ export function LoginPage({ onLogin, onNavigateToRegister }: LoginPageProps) {
   const [showAccessibility, setShowAccessibility] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -51,15 +52,7 @@ export function LoginPage({ onLogin, onNavigateToRegister }: LoginPageProps) {
       onLogin(response.user.role as UserRole);
     } catch (err: any) {
       console.error('Login error', err);
-      // Provide more specific error messages
-      if (err.message && err.message.includes('400')) {
-        setError('Invalid email or password. Please check your credentials.');
-      } else if (err.message && err.message.includes('Failed to fetch')) {
-        setError('Unable to connect to the server. Please check your internet connection.');
-      } else {
-        setError(err.message || 'Login failed');
-      }
-      alert(err.message || 'Login failed');
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -186,13 +179,19 @@ export function LoginPage({ onLogin, onNavigateToRegister }: LoginPageProps) {
                       {error}
                     </div>
                   )}
+                  {info && (
+                    <div className="rounded-lg bg-green-50 p-3 text-sm text-green-800">
+                      {info}
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <div className={`rounded-lg p-3 text-sm ${highContrast ? 'bg-gray-800 text-gray-300' : 'bg-blue-50 text-blue-700'}`}>
-                      <strong>Demo Credentials:</strong><br/>
-                      Admin: admin@handsandhope.com / Admin@2024<br/>
-                      Super Admin: superadmin@handsandhope.com / SuperAdmin@2024<br/>
-                      <small>Or register as a new user</small>
+                      <strong>Demo Accounts:</strong><br/>
+                      • <strong>Caregiver:</strong> caregiver@handsandhope.org / Password123!<br/>
+                      • <strong>Admin:</strong> admin@handsandhope.com / Admin@2024<br/>
+                      • <strong>Super Admin:</strong> superadmin@handsandhope.com / SuperAdmin@2024<br/>
+                      <small className="text-gray-500">Or sign in with your registered seller/student account</small>
                     </div>
                   </div>
 
@@ -251,7 +250,26 @@ export function LoginPage({ onLogin, onNavigateToRegister }: LoginPageProps) {
                     <button
                       type="button"
                       className="h-auto p-0 text-base text-blue-600 underline hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-                      onClick={() => alert('Password reset feature coming soon')}
+                      onClick={async () => {
+                        if (!email) {
+                          setError('Enter your email first, then request a password reset.');
+                          return;
+                        }
+                        setError('');
+                        setInfo('');
+                        try {
+                          const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://handsandhope-31gp.onrender.com')}/api/auth/forgot-password`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email }),
+                          });
+                          const data = await response.json();
+                          if (!response.ok) throw new Error(data.error || 'Could not request a password reset.');
+                          setInfo(data.message);
+                        } catch (err: any) {
+                          setError(err.message || 'Could not request a password reset.');
+                        }
+                      }}
                       disabled={isLoading}
                     >
                       Forgot Password?
@@ -265,6 +283,86 @@ export function LoginPage({ onLogin, onNavigateToRegister }: LoginPageProps) {
                   >
                     {isLoading ? 'Signing In...' : 'Sign In'}
                   </button>
+
+                  {/* 1-Click Demo Accounts for Easy Testing */}
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">
+                      ⚡ 1-Click Quick Fill Test Accounts
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('superadmin@handsandhope.org');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-rose-900">👑 Super Admin</span>
+                        <span className="text-rose-700 truncate">superadmin@handsandhope.org</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('admin@sunshine.school');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-blue-900">🏫 School Admin</span>
+                        <span className="text-blue-700 truncate">admin@sunshine.school</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('alice.seller@example.com');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-amber-900">🛍️ Artisan Seller</span>
+                        <span className="text-amber-700 truncate">alice.seller@example.com</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('john.teacher@example.com');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-purple-900">👨‍🏫 Teacher</span>
+                        <span className="text-purple-700 truncate">john.teacher@example.com</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('john.smith@handsandhope.org');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-emerald-900">🎓 Student Artisan</span>
+                        <span className="text-emerald-700 truncate">john.smith@handsandhope.org</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmail('maria.garcia@handsandhope.org');
+                          setPassword('Password123!');
+                        }}
+                        className="p-2 text-xs text-left bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors flex flex-col"
+                      >
+                        <span className="font-bold text-teal-900">🤝 Caregiver</span>
+                        <span className="text-teal-700 truncate">maria.garcia@handsandhope.org</span>
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

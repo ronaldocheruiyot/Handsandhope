@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useState } from 'react';
 
 interface AccessibilityContextType {
   fontSize: 'normal' | 'large' | 'extra-large';
@@ -18,26 +18,25 @@ interface AccessibilityProviderProps {
 }
 
 export function AccessibilityProvider({ children }: AccessibilityProviderProps) {
-  const [fontSize, setFontSizeState] = useState<'normal' | 'large' | 'extra-large'>('normal');
-  const [highContrast, setHighContrastState] = useState(false);
-  const [screenReader, setScreenReaderState] = useState(false);
-  const [voiceNavigation, setVoiceNavigationState] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [fontSize, setFontSizeState] = useState<'normal' | 'large' | 'extra-large'>(() => {
+    if (typeof window === 'undefined') return 'normal';
+    return (localStorage.getItem('a11y-fontSize') as 'normal' | 'large' | 'extra-large') || 'normal';
+  });
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const savedFontSize = localStorage.getItem('a11y-fontSize') as 'normal' | 'large' | 'extra-large' | null;
-    const savedHighContrast = localStorage.getItem('a11y-highContrast') === 'true';
-    const savedScreenReader = localStorage.getItem('a11y-screenReader') === 'true';
-    const savedVoiceNavigation = localStorage.getItem('a11y-voiceNavigation') === 'true';
+  const [highContrast, setHighContrastState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('a11y-highContrast') === 'true';
+  });
 
-    if (savedFontSize) setFontSizeState(savedFontSize);
-    if (savedHighContrast) setHighContrastState(true);
-    if (savedScreenReader) setScreenReaderState(true);
-    if (savedVoiceNavigation) setVoiceNavigationState(true);
+  const [screenReader, setScreenReaderState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('a11y-screenReader') === 'true';
+  });
 
-    setIsHydrated(true);
-  }, []);
+  const [voiceNavigation, setVoiceNavigationState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('a11y-voiceNavigation') === 'true';
+  });
 
   const setFontSize = (size: 'normal' | 'large' | 'extra-large') => {
     setFontSizeState(size);
@@ -58,11 +57,6 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
     setVoiceNavigationState(value);
     localStorage.setItem('a11y-voiceNavigation', String(value));
   };
-
-  // Don't render children until we've hydrated from localStorage
-  if (!isHydrated) {
-    return <>{children}</>;
-  }
 
   return (
     <AccessibilityContext.Provider

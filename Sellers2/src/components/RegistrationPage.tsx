@@ -124,7 +124,10 @@ export function RegistrationPage({ onRegister, onNavigateToLogin }: Registration
         const data = await res.json();
         console.log('Signup response', data);
         if (!res.ok) throw new Error(data.error || 'Registration failed');
-        // Store user and token in auth context
+        if (data.pendingApproval) {
+          alert(data.message || 'Account created and waiting for approval.');
+          return;
+        }
         authLogin(data.user, data.token);
         onRegister('seller');
       } else if (activeTab === 'school-institution') {
@@ -162,7 +165,10 @@ export function RegistrationPage({ onRegister, onNavigateToLogin }: Registration
         const data = await res.json();
         console.log('Signup response', data);
         if (!res.ok) throw new Error(data.error || 'Registration failed');
-        // Store user and token in auth context
+        if (data.pendingApproval) {
+          alert(data.message || 'Account created and waiting for approval.');
+          return;
+        }
         authLogin(data.user, data.token);
         onRegister(studentTeacherType);
       } else if (activeTab === 'school-admin') {
@@ -198,7 +204,10 @@ export function RegistrationPage({ onRegister, onNavigateToLogin }: Registration
         const data = await res.json();
         console.log('Signup response', data);
         if (!res.ok) throw new Error(data.error || 'Registration failed');
-        // Store user and token in auth context
+        if (data.pendingApproval) {
+          alert(data.message || 'Account created and waiting for approval.');
+          return;
+        }
         authLogin(data.user, data.token);
         onRegister('school');
       }

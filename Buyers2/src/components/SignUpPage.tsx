@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
+import { ShoppingCart } from 'lucide-react';
 import Header from './Header';
 import { AccessibilitySettings } from './AccessibilityMenu';
+import { api } from '../services/api';
 
 interface SignUpPageProps {
   onSignUp: (user: any) => void;
@@ -26,7 +28,10 @@ export default function SignUpPage({ onSignUp, accessibilitySettings, onAccessib
   });
   const [allowLocation, setAllowLocation] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectUrl = new URLSearchParams(location.search).get('redirect') || '/';
 
   const handleChange = (e: any) => {
     setFormData({
@@ -35,7 +40,7 @@ export default function SignUpPage({ onSignUp, accessibilitySettings, onAccessib
     });
   };
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     setError('');
 
@@ -54,18 +59,37 @@ export default function SignUpPage({ onSignUp, accessibilitySettings, onAccessib
       return;
     }
 
-    // Mock sign up - in real app, this would create a new user
-    const user = {
-      id: Date.now(),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      address: formData.address,
-      locationEnabled: allowLocation
-    };
+    setLoading(true);
+    try {
+      const res = await api.register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phoneNumber: formData.phone,
+        address: formData.address
+      });
 
-    onSignUp(user);
-    navigate('/');
+      if (res.token) {
+        localStorage.setItem('token', res.token);
+        sessionStorage.setItem('token', res.token);
+      }
+      const user = res.user || res.buyer || {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        role: 'buyer'
+      };
+      localStorage.setItem('buyer_user', JSON.stringify(user));
+      sessionStorage.setItem('buyer_user', JSON.stringify(user));
+
+      onSignUp(user);
+      navigate(redirectUrl);
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to create buyer account.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,9 +109,17 @@ export default function SignUpPage({ onSignUp, accessibilitySettings, onAccessib
             </Link>
           </CardTitle>
           <CardDescription className="text-center">
-            Create your buyer account
+            Create your buyer account to support disability artisans
           </CardDescription>
         </CardHeader>
+
+        {/* Checkout Redirect Notice */}
+        {redirectUrl === '/checkout' && (
+          <div className="mx-6 mb-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-900">
+            <ShoppingCart className="text-amber-700 shrink-0" size={18} />
+            <span><strong>Ready to checkout?</strong> Create your account below to complete your order. Your cart items are saved!</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">

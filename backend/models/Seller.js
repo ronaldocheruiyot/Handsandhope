@@ -4,11 +4,13 @@ const SellerSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   businessName: String,
   phone: String,
+  disabilityId: String,
   products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
   documents: [
     {
       url: String,
       filename: String,
+      storedName: String,
       mimeType: String,
       size: Number,
       verified: { type: Boolean, default: false },

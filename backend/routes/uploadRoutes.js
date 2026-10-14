@@ -28,6 +28,45 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
+/**
+ * @openapi
+ * /api/uploads:
+ *   post:
+ *     summary: Upload images or PDF documents.
+ *     description: Upload up to 10 files (images or PDFs, max 5MB each) to the server.
+ *     tags:
+ *       - Uploads
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Files to upload (JPG, PNG, PDF)
+ *     responses:
+ *       200:
+ *         description: Files uploaded successfully.
+ *         content:
+ *           application/json:
+ *             example:
+ *               files:
+ *                 - url: "/uploads/1724700000000-sample_craft.jpg"
+ *                   filename: "sample_craft.jpg"
+ *                   storedName: "1724700000000-sample_craft.jpg"
+ *                   mimeType: "image/jpeg"
+ *                   size: 154200
+ *                   uploadedAt: "2026-08-26T21:00:00.000Z"
+ *       400:
+ *         description: No files uploaded or invalid file type.
+ *       500:
+ *         description: Server error during upload.
+ */
 // POST /api/uploads - accept multiple files under field name 'files'
 router.post('/', upload.array('files', 10), (req, res) => {
   try {

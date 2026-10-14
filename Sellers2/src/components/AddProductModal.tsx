@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { X, Upload, DollarSign, Package, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Upload, DollarSign, Package, Plus, Trash2, AlertCircle, Tag } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -54,34 +54,85 @@ const DEFAULT_CATEGORIES = [
 export function AddProductModal({ onClose, onAddProduct, highContrast, userRole = 'seller', editProduct = null }: AddProductModalProps) {
   const isEditing = !!editProduct;
   
+  const initialCategory = editProduct?.category || '';
+  const isInitialPredefined = initialCategory ? DEFAULT_CATEGORIES.includes(initialCategory) : true;
+
   const [productName, setProductName] = useState(editProduct?.name || '');
   const [price, setPrice] = useState(editProduct?.price?.toString() || '');
   const [description, setDescription] = useState(editProduct?.description || '');
-  const [category, setCategory] = useState(editProduct?.category || '');
-  const [customCategory, setCustomCategory] = useState('');
-  const [showCustomCategory, setShowCustomCategory] = useState(false);
+  const [category, setCategory] = useState(isInitialPredefined ? initialCategory : '');
+  const [customCategory, setCustomCategory] = useState(!isInitialPredefined ? initialCategory : '');
+  const [showCustomCategory, setShowCustomCategory] = useState(!isInitialPredefined && !!initialCategory);
   const [stock, setStock] = useState(editProduct?.stock?.toString() || '');
   const [images, setImages] = useState<string[]>(editProduct?.images || []);
   const [warranty, setWarranty] = useState(editProduct?.warranty || '');
   const [refundDeadline, setRefundDeadline] = useState(editProduct?.refundDeadline || '7');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
-      const newImages: string[] = [];
-      const remainingSlots = 5 - images.length;
-      const filesToProcess = Math.min(files.length, remainingSlots);
+  // Synchronize state when editProduct changes
+  useEffect(() => {
+    if (editProduct) {
+      setProductName(editProduct.name || '');
+      setPrice(editProduct.price?.toString() || '');
+      setDescription(editProduct.description || '');
+      const isPredefined = editProduct.category ? DEFAULT_CATEGORIES.includes(editProduct.category) : true;
+      if (isPredefined) {
+        setCategory(editProduct.category || '');
+        setCustomCategory('');
+        setShowCustomCategory(false);
+      } else {
+        setCategory('');
+        setCustomCategory(editProduct.category || '');
+        setShowCustomCategory(true);
+      }
+      setStock(editProduct.stock?.toString() || '');
+      setImages(editProduct.images || []);
+      setWarranty(editProduct.warranty || '');
+      setRefundDeadline(editProduct.refundDeadline || '7');
+    } else {
+      setProductName('');
+      setPrice('');
+      setDescription('');
+      setCategory('');
+      setCustomCategory('');
+      setShowCustomCategory(false);
+      setStock('');
+      setImages([]);
+      setWarranty('');
+      setRefundDeadline('7');
+    }
+  }, [editProduct]);
 
-      for (let i = 0; i < filesToProcess; i++) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newImages.push(reader.result as string);
-          if (newImages.length === filesToProcess) {
-            setImages([...images, ...newImages]);
-          }
-        };
-        reader.readAsDataURL(files[i]);
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const remainingSlots = 5 - images.length;
+      const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
+      const readPromises = filesToProcess.map(file => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (reader.result) {
+              resolve(reader.result as string);
+            } else {
+              reject(new Error('Failed to read file'));
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      try {
+        const loadedImages = await Promise.all(readPromises);
+        setImages(prev => [...prev, ...loadedImages].slice(0, 5));
+      } catch (err) {
+        console.error('Error reading images:', err);
+      } finally {
+        if (event.target) {
+          event.target.value = '';
+        }
       }
     }
   };
@@ -109,7 +160,7 @@ export function AddProductModal({ onClose, onAddProduct, highContrast, userRole 
       return;
     }
 
-    const finalCategory = showCustomCategory ? customCategory : category;
+    const finalCategory = (showCustomCategory ? customCategory : category).trim();
     if (!finalCategory) {
       alert('Please select or enter a product category');
       return;
@@ -271,16 +322,68 @@ export function AddProductModal({ onClose, onAddProduct, highContrast, userRole 
             </div>
 
             {/* Category Selection */}
-            <div className="space-y-3">
-              <Label className={highContrast ? 'text-gray-300' : ''}>
-                Product Category *
-              </Label>
+            <div className={`space-y-3 rounded-xl border p-4 ${highContrast ? 'border-gray-700 bg-gray-900/60' : 'border-gray-200 bg-gray-50/70'}`}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <Label className={`font-semibold flex items-center gap-2 ${highContrast ? 'text-gray-200' : 'text-gray-900'}`}>
+                  <Tag className="h-4 w-4 text-blue-600" />
+                  Product Category *
+                </Label>
+                
+                {/* Segmented Mode Selector Pills */}
+                <div className={`inline-flex rounded-lg p-1 text-xs border ${highContrast ? 'bg-gray-800 border-gray-700' : 'bg-gray-200/80 border-gray-300'}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomCategory(false);
+                      if (!DEFAULT_CATEGORIES.includes(category)) {
+                        setCategory(DEFAULT_CATEGORIES[0]);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-all ${
+                      !showCustomCategory
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : highContrast ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span>Predefined</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomCategory(true);
+                      if (!customCategory && category) {
+                        setCustomCategory(category);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-all ${
+                      showCustomCategory
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : highContrast ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Custom</span>
+                  </button>
+                </div>
+              </div>
               
               {!showCustomCategory ? (
-                <div className="space-y-3">
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="Select a category" />
+                <div className="space-y-2">
+                  <Select 
+                    value={DEFAULT_CATEGORIES.includes(category) ? category : ''} 
+                    onValueChange={(val) => {
+                      if (val === '__custom__') {
+                        setShowCustomCategory(true);
+                        if (!customCategory && category && !DEFAULT_CATEGORIES.includes(category)) {
+                          setCustomCategory(category);
+                        }
+                      } else {
+                        setCategory(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={`h-12 ${highContrast ? 'bg-black text-white border-gray-700' : 'bg-white'}`}>
+                      <SelectValue placeholder="Select a category from the list" />
                     </SelectTrigger>
                     <SelectContent>
                       {DEFAULT_CATEGORIES.map((cat) => (
@@ -288,42 +391,66 @@ export function AddProductModal({ onClose, onAddProduct, highContrast, userRole 
                           {cat}
                         </SelectItem>
                       ))}
+                      <SelectItem value="__custom__" className="font-semibold text-blue-600 border-t mt-1 cursor-pointer">
+                        + Enter a Custom Category...
+                      </SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCustomCategory(true)}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Custom Category
-                  </Button>
+                  <p className={`text-xs ${highContrast ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Can't find a matching category? Click <strong>Custom</strong> above or select <strong>+ Enter a Custom Category</strong> to type your own.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <Input
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    placeholder="Enter custom category name"
-                    className="h-12"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowCustomCategory(false);
-                      setCustomCategory('');
-                    }}
-                    className="w-full"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Use Predefined Categories
-                  </Button>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Input
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="e.g., Book, Wood Carving, Leather Shoes..."
+                      className={`h-12 pr-24 ${highContrast ? 'bg-black text-white border-gray-700' : 'bg-white'}`}
+                      required
+                      autoFocus
+                    />
+                    {customCategory && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        Custom
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={highContrast ? 'text-gray-400' : 'text-gray-500'}>
+                      Type any custom category name for your product.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomCategory(false);
+                        if (!DEFAULT_CATEGORIES.includes(category)) {
+                          setCategory(DEFAULT_CATEGORIES[0]);
+                        }
+                      }}
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      ← Back to Predefined List
+                    </button>
+                  </div>
                 </div>
               )}
+
+              {/* Current Active Category Badge */}
+              <div className="flex items-center gap-2 pt-1 border-t border-gray-200/60">
+                <span className={`text-xs ${highContrast ? 'text-gray-400' : 'text-gray-500'}`}>Active Category:</span>
+                {(showCustomCategory ? customCategory : category) ? (
+                  <Badge variant="secondary" className="font-medium bg-blue-50 text-blue-700 border-blue-200">
+                    {showCustomCategory ? customCategory : category}
+                    <span className="ml-1.5 text-[10px] text-blue-500 font-normal">
+                      ({showCustomCategory ? 'Custom' : 'Predefined'})
+                    </span>
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-orange-600 italic">No category selected yet</span>
+                )}
+              </div>
             </div>
 
             {/* Description */}

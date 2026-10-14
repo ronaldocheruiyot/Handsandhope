@@ -5,7 +5,7 @@ const productSchema = new mongoose.Schema(
     sellerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
     price: { type: Number, required: true },
-    status: { type: String, enum: ['active', 'inactive', 'sold', 'draft'], default: "active" },
+    status: { type: String, enum: ['active', 'inactive', 'sold', 'draft', 'pending', 'rejected'], default: "active" },
     category: { type: String, default: "Uncategorized" },
     description: { type: String },
     stock: { type: Number, default: 1 },

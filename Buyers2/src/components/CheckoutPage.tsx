@@ -9,63 +9,92 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { Separator } from './ui/separator';
-import { CreditCard, Smartphone, MapPin, Package } from 'lucide-react';
+import { CreditCard, Smartphone, MapPin, Package, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 import { AccessibilitySettings } from './AccessibilityMenu';
+import { api } from '../services/api';
 
 interface CheckoutPageProps {
   currentUser: any;
   onLogout: () => void;
+  cart?: any[];
+  onRemoveFromCart?: (productId: string | number) => void;
+  onClearCart?: () => void;
   accessibilitySettings?: AccessibilitySettings;
   onAccessibilityChange?: (settings: AccessibilitySettings) => void;
 }
 
-const mockCartItems = [
-  { id: 6, product: 'Canvas Tote Bag', price: 19.99, quantity: 2, image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=200' },
-  { id: 7, product: 'Abstract Painting', price: 129.99, quantity: 1, image: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=200' }
-];
-
-export default function CheckoutPage({ currentUser, onLogout, accessibilitySettings, onAccessibilityChange }: CheckoutPageProps) {
+export default function CheckoutPage({ 
+  currentUser, 
+  onLogout, 
+  cart = [], 
+  onRemoveFromCart = () => {}, 
+  onClearCart = () => {}, 
+  accessibilitySettings, 
+  onAccessibilityChange 
+}: CheckoutPageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [enableLocationTracking, setEnableLocationTracking] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(false);
   const [shippingAddress, setShippingAddress] = useState({
     fullName: currentUser?.name || '',
     address: currentUser?.address || '',
-    city: '',
-    zipCode: '',
-    phone: currentUser?.phone || ''
+    city: 'Nairobi',
+    zipCode: '00100',
+    phone: currentUser?.phone || '+254711223344'
   });
   const navigate = useNavigate();
 
-  const subtotal = mockCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = 10.00;
-  const tax = subtotal * 0.08;
+  const subtotal = cart.reduce((sum, item) => sum + (Number(item.price) * (item.quantity || 1)), 0);
+  const shipping = cart.length > 0 ? 5.00 : 0;
+  const tax = subtotal * 0.05;
   const total = subtotal + shipping + tax;
 
-  const handlePlaceOrder = () => {
-    if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || !shippingAddress.zipCode) {
-      alert('Please fill in all shipping address fields');
+  const handlePlaceOrder = async () => {
+    if (!cart.length) {
+      alert('Your cart is empty. Please add products from the marketplace before checking out.');
       return;
     }
 
-    if (enableLocationTracking) {
-      alert('Thank you for enabling location tracking! The seller will be able to track delivery after your confirmation.');
+    if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city || !shippingAddress.zipCode) {
+      alert('Please fill in all required shipping address fields');
+      return;
     }
 
-    alert('Order placed successfully! You will receive a confirmation email shortly.');
-    navigate('/profile');
+    setLoading(true);
+    try {
+      await api.createOrder({
+        items: cart,
+        shippingAddress,
+        paymentMethod,
+        trackingConsent: enableLocationTracking
+      });
+
+      setOrderSuccess(true);
+      onClearCart();
+
+      setTimeout(() => {
+        navigate('/profile');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Order creation error:', err);
+      alert(err.message || 'Failed to place order. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
       <Sidebar selectedCategories={selectedCategories} onCategoryChange={setSelectedCategories} />
       
-      <div className="flex-1">
+      <div className="flex-1 min-w-0 flex flex-col">
         <Header 
           isLoggedIn={true} 
           currentUser={currentUser} 
           onLogout={onLogout}
-          cartItemCount={mockCartItems.reduce((sum, item) => sum + item.quantity, 0)}
+          cartItemCount={cart.reduce((sum, item) => sum + (item.quantity || 1), 0)}
           accessibilitySettings={accessibilitySettings}
           onAccessibilityChange={onAccessibilityChange}
         />
@@ -258,55 +287,88 @@ export default function CheckoutPage({ currentUser, onLogout, accessibilitySetti
               <div>
                 <Card className="sticky top-24">
                   <CardHeader>
-                    <CardTitle>Order Summary</CardTitle>
+                    <CardTitle>Order Summary ({cart.length} item{cart.length === 1 ? '' : 's'})</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4 mb-6">
-                      {mockCartItems.map((item) => (
-                        <div key={item.id} className="flex gap-4">
-                          <img src={item.image} alt={item.product} className="w-16 h-16 object-cover rounded" />
-                          <div className="flex-1">
-                            <p className="text-gray-700">{item.product}</p>
-                            <p className="text-gray-600">Qty: {item.quantity}</p>
+                    {cart.length === 0 ? (
+                      <div className="text-center py-6 text-gray-500 text-sm">
+                        Your cart is empty.
+                      </div>
+                    ) : (
+                      <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-1">
+                        {cart.map((item) => (
+                          <div key={item.id || item._id} className="flex items-center gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                            <img 
+                              src={item.image || (item.images && item.images[0]) || 'https://images.unsplash.com/photo-1503602642458-232111445657?w=200'} 
+                              alt={item.name || item.product} 
+                              className="w-14 h-14 object-cover rounded-lg shrink-0" 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{item.name || item.product}</p>
+                              <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
+                              <p className="text-xs font-bold text-[#1e2875]">${(Number(item.price) * (item.quantity || 1)).toFixed(2)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onRemoveFromCart(item.id || item._id)}
+                              className="text-gray-400 hover:text-red-500 p-1"
+                              title="Remove item"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
-                          <p className="text-gray-700">${(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
 
                     <Separator className="my-4" />
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-gray-700">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between text-gray-600">
                         <span>Subtotal</span>
-                        <span>${subtotal.toFixed(2)}</span>
+                        <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-gray-700">
+                      <div className="flex justify-between text-gray-600">
                         <span>Shipping</span>
-                        <span>${shipping.toFixed(2)}</span>
+                        <span className="font-semibold text-gray-900">${shipping.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between text-gray-700">
-                        <span>Tax</span>
-                        <span>${tax.toFixed(2)}</span>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Estimated Tax (5%)</span>
+                        <span className="font-semibold text-gray-900">${tax.toFixed(2)}</span>
                       </div>
                     </div>
 
                     <Separator className="my-4" />
 
-                    <div className="flex justify-between mb-6">
-                      <span>Total</span>
-                      <span className="text-[#1e2875]">${total.toFixed(2)}</span>
+                    <div className="flex justify-between mb-6 text-base font-bold">
+                      <span className="text-gray-900">Total Due</span>
+                      <span className="text-[#1e2875] text-xl">${total.toFixed(2)}</span>
                     </div>
 
-                    <Button
-                      onClick={handlePlaceOrder}
-                      className="w-full bg-[#1e2875] hover:bg-[#2a3490] text-white py-6 focus:ring-2 focus:ring-yellow-400"
-                    >
-                      Place Order
-                    </Button>
+                    {orderSuccess ? (
+                      <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-center">
+                        <CheckCircle className="mx-auto mb-1 text-emerald-600" size={28} />
+                        <p className="font-bold text-sm">Order Placed Successfully!</p>
+                        <p className="text-xs mt-0.5">Redirecting to your orders...</p>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handlePlaceOrder}
+                        disabled={loading || cart.length === 0}
+                        className="w-full bg-[#1e2875] hover:bg-[#2a3490] text-white py-6 rounded-xl font-bold focus:ring-2 focus:ring-yellow-400 shadow-md"
+                      >
+                        {loading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="animate-spin" size={18} /> Processing Order...
+                          </span>
+                        ) : (
+                          `Confirm & Pay $${total.toFixed(2)}`
+                        )}
+                      </Button>
+                    )}
 
-                    <p className="text-center text-gray-600 mt-4">
-                      By placing this order, you agree to our terms and conditions
+                    <p className="text-center text-xs text-gray-500 mt-4">
+                      Directly empowers special needs artisans with fair-trade returns.
                     </p>
                   </CardContent>
                 </Card>

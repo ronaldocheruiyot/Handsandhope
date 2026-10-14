@@ -34,7 +34,7 @@ export default function Sidebar({ selectedCategories, onCategoryChange }: Sideba
   };
 
   return (
-    <aside className="w-64 bg-[#1e2875] text-white min-h-screen p-4 flex flex-col" role="navigation" aria-label="Main navigation">
+    <aside className="w-64 shrink-0 bg-[#1e2875] text-white min-h-screen p-4 flex flex-col z-10" role="navigation" aria-label="Main navigation">
       <nav className="space-y-2">
         <Link 
           to="/" 
@@ -60,19 +60,19 @@ export default function Sidebar({ selectedCategories, onCategoryChange }: Sideba
           </button>
 
           {isCategoryOpen && (
-            <div className="mt-2 ml-4 space-y-2" role="group" aria-label="Product categories">
+            <div className="mt-2 ml-4 space-y-2" role="group" aria-label="Category filters">
               {categories.map((category) => (
-                <div key={category} className="flex items-center gap-2 px-4 py-2">
+                <div key={category} className="flex items-center space-x-2 py-1">
                   <Checkbox
-                    id={category}
+                    id={`category-${category}`}
                     checked={selectedCategories.includes(category)}
                     onCheckedChange={() => handleCategoryToggle(category)}
-                    className="border-white data-[state=checked]:bg-yellow-400 data-[state=checked]:border-yellow-400"
+                    className="border-white data-[state=checked]:bg-yellow-400 data-[state=checked]:text-[#1e2875]"
                     aria-label={`Filter by ${category}`}
                   />
                   <Label
-                    htmlFor={category}
-                    className="cursor-pointer text-white hover:text-yellow-400 transition-colors"
+                    htmlFor={`category-${category}`}
+                    className="text-sm cursor-pointer hover:text-yellow-400 transition-colors"
                   >
                     {category}
                   </Label>
@@ -85,10 +85,10 @@ export default function Sidebar({ selectedCategories, onCategoryChange }: Sideba
         <Link 
           to="/schools" 
           className="flex items-center gap-3 px-4 py-3 rounded hover:bg-[#2a3490] transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          aria-label="Schools and institutions"
+          aria-label="Partner schools"
         >
           <School size={20} aria-hidden="true" />
-          <span>Schools & Institutions</span>
+          <span>Schools</span>
         </Link>
 
         <Link 
@@ -118,6 +118,11 @@ export default function Sidebar({ selectedCategories, onCategoryChange }: Sideba
           <span>Services</span>
         </Link>
       </nav>
+
+      <div className="mt-auto pt-6 border-t border-blue-800 text-xs text-blue-200">
+        <p className="font-semibold text-white mb-1">Hands and Hope</p>
+        <p>Empowering artisans with disabilities through inclusive commerce.</p>
+      </div>
     </aside>
   );
 }

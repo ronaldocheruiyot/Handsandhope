@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
@@ -9,393 +9,493 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { Calendar, CreditCard, Package, DollarSign, MapPin, Edit } from 'lucide-react';
+import { Calendar, CreditCard, Package, DollarSign, MapPin, Edit, MessageSquare, Truck, CheckCircle, Loader2 } from 'lucide-react';
 import { AccessibilitySettings } from './AccessibilityMenu';
+import { api } from '../services/api';
 
 interface ProfilePageProps {
   currentUser: any;
   onLogout: () => void;
+  onProfileUpdate?: (user: any) => void;
+  cart?: any[];
   accessibilitySettings?: AccessibilitySettings;
   onAccessibilityChange?: (settings: AccessibilitySettings) => void;
 }
 
-const mockPurchaseHistory = [
-  { id: 1, product: 'Handmade Wooden Chair', price: 89.99, date: '2024-01-15', status: 'Delivered', image: 'https://images.unsplash.com/photo-1503602642458-232111445657?w=200' },
-  { id: 2, product: 'Cotton T-Shirt', price: 24.99, date: '2024-01-10', status: 'Delivered', image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=200' },
-  { id: 3, product: 'Ceramic Bowl Set', price: 45.99, date: '2024-01-05', status: 'Delivered', image: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=200' }
-];
-
-const mockPendingOrders = [
-  { id: 4, product: 'Knitted Scarf', price: 34.99, orderDate: '2024-01-18', estimatedDelivery: '2024-01-25', status: 'In Transit', image: 'https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=200', trackingNumber: 'TRK123456789' },
-  { id: 5, product: 'Wooden Cutting Board', price: 39.99, orderDate: '2024-01-19', estimatedDelivery: '2024-01-28', status: 'Processing', image: 'https://images.unsplash.com/photo-1565084888279-aca607ecce0c?w=200', trackingNumber: 'TRK987654321' }
-];
-
-const mockCartItems = [
-  { id: 6, product: 'Canvas Tote Bag', price: 19.99, quantity: 2, image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=200' },
-  { id: 7, product: 'Abstract Painting', price: 129.99, quantity: 1, image: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=200' }
-];
-
 const paymentMethods = [
-  { id: 1, type: 'Credit Card', last4: '4242', expiry: '12/25', brand: 'Visa' },
-  { id: 2, type: 'Mobile Money', number: '+1234567890', provider: 'BuyGoods' }
+  { id: 1, type: 'Credit Card', last4: '4242', expiry: '12/26', brand: 'Visa' },
+  { id: 2, type: 'Mobile Money', number: '+254711223344', provider: 'M-Pesa / BuyGoods' }
 ];
 
-export default function ProfilePage({ currentUser, onLogout, accessibilitySettings, onAccessibilityChange }: ProfilePageProps) {
+export default function ProfilePage({ currentUser, onLogout, onProfileUpdate, cart = [], accessibilitySettings, onAccessibilityChange }: ProfilePageProps) {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [trackedOrderId, setTrackedOrderId] = useState<string | null>(null);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [formData, setFormData] = useState({
-    name: currentUser?.name || 'John Doe',
-    email: currentUser?.email || 'john@example.com',
-    phone: currentUser?.phone || '+1234567890',
-    address: currentUser?.address || '123 Main St, City, Country'
+    name: currentUser?.name || '',
+    email: currentUser?.email || '',
+    phone: currentUser?.phone || currentUser?.phoneNumber || '',
+    address: currentUser?.address || ''
   });
   const navigate = useNavigate();
 
-  const totalSpent = mockPurchaseHistory.reduce((sum, item) => sum + item.price, 0);
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBuyerData = async () => {
+      setLoading(true);
+      try {
+        const [ordersData, inquiriesData, profile] = await Promise.all([
+          api.getBuyerOrders(),
+          api.getBuyerInquiries(),
+          api.getProfile().catch(() => null)
+        ]);
+        if (isMounted) {
+          setOrders(Array.isArray(ordersData) ? ordersData : []);
+          setInquiries(Array.isArray(inquiriesData) ? inquiriesData : []);
+          if (profile) {
+            setFormData({
+              name: profile.name || currentUser?.name || '',
+              email: profile.email || currentUser?.email || '',
+              phone: profile.phone || profile.phoneNumber || currentUser?.phone || '',
+              address: profile.address || currentUser?.address || ''
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load buyer orders & inquiries:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // Save logic here
+    fetchBuyerData();
+    return () => { isMounted = false; };
+  }, []);
+
+  const totalSpent = orders.reduce((sum, item) => sum + (Number(item.price || item.amount) * (item.quantity || 1)), 0);
+  const deliveredOrders = orders.filter(o => o.status === 'Delivered' || o.rawStatus === 'completed');
+  const pendingOrders = orders.filter(o => o.status !== 'Delivered' && o.rawStatus !== 'completed');
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMessage('');
+    try {
+      const updated = await api.updateProfile({
+        name: formData.name,
+        phone: formData.phone,
+        address: formData.address,
+      });
+      const nextUser = { ...(currentUser || {}), ...updated, phone: updated.phone || formData.phone };
+      onProfileUpdate?.(nextUser);
+      setSaveMessage('Profile saved.');
+    } catch (err: any) {
+      setSaveMessage(err.message || 'Could not save profile.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleTrackOrder = (trackingNumber: string) => {
-    alert(`Tracking order: ${trackingNumber}\n\nIn a real application, this would show detailed tracking information and location updates.`);
+  const handlePasswordSave = async () => {
+    setSaveMessage('');
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setSaveMessage('Enter your current password and a new password.');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSaveMessage('New passwords do not match.');
+      return;
+    }
+    try {
+      await api.updatePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setSaveMessage('Password updated.');
+    } catch (err: any) {
+      setSaveMessage(err.message || 'Could not update password.');
+    }
+  };
+
+  const handleTrackOrder = (orderId: string) => {
+    setTrackedOrderId(trackedOrderId === orderId ? null : orderId);
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
       <Sidebar selectedCategories={selectedCategories} onCategoryChange={setSelectedCategories} />
       
-      <div className="flex-1">
+      <div className="flex-1 min-w-0 flex flex-col">
         <Header 
           isLoggedIn={true} 
           currentUser={currentUser} 
           onLogout={onLogout}
+          cartItemCount={cart.reduce((sum, item) => sum + (item.quantity || 1), 0)}
           accessibilitySettings={accessibilitySettings}
           onAccessibilityChange={onAccessibilityChange}
         />
 
-        <main id="main-content" className="p-6" role="main">
-          <div className="mb-6">
-            <h1 className="text-[#1e2875] mb-2">My Profile</h1>
-            <p className="text-gray-600">Manage your account and view your orders</p>
+        <main id="main-content" className="p-6 max-w-6xl mx-auto" role="main">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#1e2875] mb-1">
+                Welcome back, {currentUser?.name || 'Customer'}!
+              </h1>
+              <p className="text-gray-600 text-sm">Manage your account, track orders, and view artisan conversations</p>
+            </div>
+            <Badge className="bg-emerald-600 text-white px-3 py-1.5 w-fit">
+              🌟 Active Community Patron
+            </Badge>
           </div>
 
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-white" role="tablist" aria-label="Profile sections">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="orders">Orders</TabsTrigger>
-              <TabsTrigger value="pending">Pending Orders</TabsTrigger>
-              <TabsTrigger value="cart">Cart</TabsTrigger>
-              <TabsTrigger value="payment">Payment Methods</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin text-[#1e2875]" size={36} />
+            </div>
+          ) : (
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList className="bg-white border p-1 rounded-xl shadow-sm" role="tablist" aria-label="Profile sections">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="orders">Purchase History ({deliveredOrders.length})</TabsTrigger>
+                <TabsTrigger value="pending">Active Orders ({pendingOrders.length})</TabsTrigger>
+                <TabsTrigger value="inquiries">Messages & Inquiries ({inquiries.length})</TabsTrigger>
+                <TabsTrigger value="settings">Settings & Address</TabsTrigger>
+              </TabsList>
 
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-600 mb-2">Total Orders</p>
-                        <p className="text-[#1e2875]">{mockPurchaseHistory.length}</p>
-                      </div>
-                      <Package className="text-[#1e2875]" size={32} aria-hidden="true" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-600 mb-2">Total Spent</p>
-                        <p className="text-[#1e2875]">${totalSpent.toFixed(2)}</p>
-                      </div>
-                      <DollarSign className="text-[#1e2875]" size={32} aria-hidden="true" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-600 mb-2">Pending Orders</p>
-                        <p className="text-[#1e2875]">{mockPendingOrders.length}</p>
-                      </div>
-                      <Calendar className="text-[#1e2875]" size={32} aria-hidden="true" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-gray-600 mb-2">Cart Items</p>
-                        <p className="text-[#1e2875]">{mockCartItems.reduce((sum, item) => sum + item.quantity, 0)}</p>
-                      </div>
-                      <Package className="text-[#1e2875]" size={32} aria-hidden="true" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockPurchaseHistory.slice(0, 3).map((order) => (
-                      <div key={order.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded">
-                        <img src={order.image} alt={order.product} className="w-16 h-16 object-cover rounded" />
-                        <div className="flex-1">
-                          <p>{order.product}</p>
-                          <p className="text-gray-600">{new Date(order.date).toLocaleDateString()}</p>
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <Card className="rounded-2xl border-gray-200 shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Orders</p>
+                          <p className="text-[#1e2875] text-2xl font-bold">{orders.length}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[#1e2875]">${order.price.toFixed(2)}</p>
-                          <Badge className="bg-green-600">{order.status}</Badge>
+                        <div className="p-3 bg-indigo-50 rounded-xl text-[#1e2875]">
+                          <Package size={24} />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    </CardContent>
+                  </Card>
 
-            {/* Orders Tab */}
-            <TabsContent value="orders" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Purchase History</CardTitle>
-                  <CardDescription>View all your completed orders</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockPurchaseHistory.map((order) => (
-                      <div key={order.id} className="flex items-center gap-4 p-4 border rounded">
-                        <img src={order.image} alt={order.product} className="w-20 h-20 object-cover rounded" />
-                        <div className="flex-1">
-                          <p>{order.product}</p>
-                          <p className="text-gray-600">Order Date: {new Date(order.date).toLocaleDateString()}</p>
-                          <Badge className="mt-2 bg-green-600">{order.status}</Badge>
+                  <Card className="rounded-2xl border-gray-200 shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Total Contribution</p>
+                          <p className="text-[#1e2875] text-2xl font-bold">${totalSpent.toFixed(2)}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[#1e2875] mb-2">${order.price.toFixed(2)}</p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/product/${order.id}`)}
-                            className="border-[#1e2875] text-[#1e2875] hover:bg-[#1e2875] hover:text-white"
-                          >
-                            Leave Review
-                          </Button>
+                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+                          <DollarSign size={24} />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    </CardContent>
+                  </Card>
 
-            {/* Pending Orders Tab */}
-            <TabsContent value="pending" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pending Orders</CardTitle>
-                  <CardDescription>Track your in-progress orders</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockPendingOrders.map((order) => (
-                      <div key={order.id} className="p-4 border rounded">
-                        <div className="flex items-center gap-4 mb-4">
-                          <img src={order.image} alt={order.product} className="w-20 h-20 object-cover rounded" />
-                          <div className="flex-1">
-                            <p>{order.product}</p>
-                            <p className="text-gray-600">Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
-                            <Badge className="mt-2 bg-blue-600">{order.status}</Badge>
-                          </div>
-                          <p className="text-[#1e2875]">${order.price.toFixed(2)}</p>
+                  <Card className="rounded-2xl border-gray-200 shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Active Deliveries</p>
+                          <p className="text-[#1e2875] text-2xl font-bold">{pendingOrders.length}</p>
                         </div>
-                        <Separator className="my-4" />
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="text-[#1e2875]" size={20} aria-hidden="true" />
-                            <div>
-                              <p className="text-gray-600">Estimated Delivery</p>
-                              <p className="text-[#1e2875]">{new Date(order.estimatedDelivery).toLocaleDateString()}</p>
+                        <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                          <Truck size={24} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-2xl border-gray-200 shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Artisan Inquiries</p>
+                          <p className="text-[#1e2875] text-2xl font-bold">{inquiries.length}</p>
+                        </div>
+                        <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+                          <MessageSquare size={24} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Recent Orders</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {orders.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No orders placed yet. Explore the marketplace to find handcrafted items!
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {orders.slice(0, 4).map((order) => (
+                          <div key={order.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <img src={order.image} alt={order.product} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{order.product}</p>
+                              <p className="text-xs text-gray-500">Order Date: {order.date}</p>
+                              <p className="text-xs text-gray-400">Tracking: {order.trackingNumber}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[#1e2875] font-bold mb-1">${Number(order.price).toFixed(2)}</p>
+                              <Badge className={order.status === 'Delivered' ? 'bg-emerald-600' : 'bg-blue-600'}>
+                                {order.status}
+                              </Badge>
                             </div>
                           </div>
-                          <Button
-                            onClick={() => handleTrackOrder(order.trackingNumber)}
-                            className="bg-[#1e2875] hover:bg-[#2a3490] focus:ring-2 focus:ring-yellow-400"
-                          >
-                            <MapPin className="mr-2" size={16} aria-hidden="true" />
-                            Track Order
-                          </Button>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* Cart Tab */}
-            <TabsContent value="cart" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Shopping Cart</CardTitle>
-                  <CardDescription>Items waiting to be checked out</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockCartItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 p-4 border rounded">
-                        <img src={item.image} alt={item.product} className="w-20 h-20 object-cover rounded" />
-                        <div className="flex-1">
-                          <p>{item.product}</p>
-                          <p className="text-gray-600">Quantity: {item.quantity}</p>
-                        </div>
-                        <p className="text-[#1e2875]">${(item.price * item.quantity).toFixed(2)}</p>
+              {/* Purchase History Tab */}
+              <TabsContent value="orders" className="space-y-4">
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Delivered Purchases</CardTitle>
+                    <CardDescription>All completed orders delivered to your address</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {deliveredOrders.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No completed orders yet.
                       </div>
-                    ))}
-                  </div>
-                  <Separator className="my-6" />
-                  <div className="flex items-center justify-between mb-6">
-                    <p>Total:</p>
-                    <p className="text-[#1e2875]">
-                      ${mockCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => navigate('/checkout')}
-                    className="w-full bg-[#1e2875] hover:bg-[#2a3490] py-6 focus:ring-2 focus:ring-yellow-400"
-                  >
-                    Proceed to Checkout
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Payment Methods Tab */}
-            <TabsContent value="payment" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Methods</CardTitle>
-                  <CardDescription>Manage your payment options</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4 mb-6">
-                    {paymentMethods.map((method) => (
-                      <div key={method.id} className="flex items-center gap-4 p-4 border rounded">
-                        <CreditCard className="text-[#1e2875]" size={32} aria-hidden="true" />
-                        <div className="flex-1">
-                          <p>{method.type}</p>
-                          {method.last4 && (
-                            <p className="text-gray-600">•••• {method.last4} - Expires {method.expiry}</p>
-                          )}
-                          {method.number && (
-                            <p className="text-gray-600">{method.number} - {method.provider}</p>
-                          )}
-                        </div>
-                        <Button variant="outline" size="sm" className="border-[#1e2875] text-[#1e2875]">
-                          Edit
-                        </Button>
+                    ) : (
+                      <div className="space-y-4">
+                        {deliveredOrders.map((order) => (
+                          <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-xl bg-white shadow-sm">
+                            <div className="flex items-center gap-4">
+                              <img src={order.image} alt={order.product} className="w-20 h-20 object-cover rounded-xl shrink-0" />
+                              <div>
+                                <p className="font-bold text-gray-900">{order.product}</p>
+                                <p className="text-xs text-gray-500">Delivered on {order.date}</p>
+                                <p className="text-xs text-emerald-700 font-medium mt-1">✓ Artisan: {order.seller}</p>
+                                <Badge className="mt-2 bg-emerald-600 text-xs">Delivered</Badge>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[#1e2875] font-extrabold text-lg mb-2">${Number(order.price).toFixed(2)}</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate('/')}
+                                className="border-[#1e2875] text-[#1e2875] text-xs font-medium"
+                              >
+                                Reorder / Review
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <Button className="w-full bg-[#1e2875] hover:bg-[#2a3490] focus:ring-2 focus:ring-yellow-400">
-                    Add Payment Method
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Account Details</CardTitle>
-                      <CardDescription>Update your personal information</CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditing(!isEditing)}
-                      className="border-[#1e2875] text-[#1e2875] hover:bg-[#1e2875] hover:text-white focus:ring-2 focus:ring-yellow-400"
-                    >
-                      <Edit className="mr-2" size={16} aria-hidden="true" />
-                      {isEditing ? 'Cancel' : 'Edit'}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        disabled={!isEditing}
-                        className="focus:border-[#1e2875] focus:ring-[#1e2875]"
-                      />
-                    </div>
+              {/* Pending Orders Tab */}
+              <TabsContent value="pending" className="space-y-4">
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Active Deliveries & Processing</CardTitle>
+                    <CardDescription>Track items being crafted and shipped by artisans</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {pendingOrders.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No active orders right now.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {pendingOrders.map((order) => (
+                          <div key={order.id} className="p-5 border rounded-2xl bg-white shadow-sm">
+                            <div className="flex items-center gap-4 mb-4">
+                              <img src={order.image} alt={order.product} className="w-20 h-20 object-cover rounded-xl shrink-0" />
+                              <div className="flex-1">
+                                <p className="font-bold text-gray-900">{order.product}</p>
+                                <p className="text-xs text-gray-500">Ordered: {order.date}</p>
+                                <p className="text-xs text-gray-600 mt-0.5">Shipping to: {order.shippingAddress}</p>
+                                <Badge className="mt-2 bg-blue-600 text-xs">{order.status}</Badge>
+                              </div>
+                              <p className="text-[#1e2875] font-extrabold text-xl">${Number(order.price).toFixed(2)}</p>
+                            </div>
+                            <Separator className="my-3" />
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                              <div>
+                                <span className="text-xs text-gray-500">Tracking Reference: </span>
+                                <span className="font-mono font-bold text-gray-800">{order.trackingNumber}</span>
+                              </div>
+                              <Button
+                                onClick={() => handleTrackOrder(order.id)}
+                                className="bg-[#1e2875] hover:bg-[#2a3490] text-white text-xs h-9 px-4 rounded-lg"
+                              >
+                                <MapPin className="mr-1.5" size={14} /> Track Delivery
+                              </Button>
+                            </div>
+                            {trackedOrderId === order.id && (
+                              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-gray-800">
+                                <p className="font-semibold text-[#1e2875] mb-1">Shipment {order.trackingNumber}</p>
+                                <p>Status: {order.status}</p>
+                                <p>Seller: {order.seller || order.sellerName}</p>
+                                <p>Ship to: {order.shippingAddress}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        disabled={!isEditing}
-                        className="focus:border-[#1e2875] focus:ring-[#1e2875]"
-                      />
-                    </div>
+              {/* Inquiries Tab */}
+              <TabsContent value="inquiries" className="space-y-4">
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Your Conversations with Artisans</CardTitle>
+                    <CardDescription>Questions and custom order discussions</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {inquiries.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        You haven't sent any inquiries yet. Click "Message Artisan" on any product page to chat!
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {inquiries.map((inq) => (
+                          <div key={inq._id} className="p-4 border rounded-2xl bg-white shadow-sm space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-[#1e2875] text-sm">{inq.productName || 'Handcrafted Craft'}</span>
+                              <Badge className={inq.status === 'replied' ? 'bg-emerald-600' : 'bg-amber-500'}>
+                                {inq.status === 'replied' ? 'Replied by Artisan' : 'Pending Response'}
+                              </Badge>
+                            </div>
+                            <p className="text-gray-800 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100">
+                              💬 <strong>You:</strong> "{inq.message}"
+                            </p>
+                            {inq.replies && inq.replies.length > 0 && (
+                              <div className="pl-4 border-l-2 border-[#1e2875] space-y-2">
+                                {inq.replies.map((rep: any, rIdx: number) => (
+                                  <div key={rIdx} className="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100 text-sm">
+                                    <p className="font-bold text-[#1e2875] text-xs mb-1">
+                                      🎨 Artisan Response ({new Date(rep.timestamp).toLocaleDateString()}):
+                                    </p>
+                                    <p className="text-gray-800">{rep.message}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
+              {/* Settings Tab */}
+              <TabsContent value="settings" className="space-y-4">
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Personal Details & Delivery Address</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          value={formData.email}
+                          disabled
+                          className="mt-1 bg-gray-100 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
                     <div>
                       <Label htmlFor="phone">Phone Number</Label>
                       <Input
                         id="phone"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        disabled={!isEditing}
-                        className="focus:border-[#1e2875] focus:ring-[#1e2875]"
+                        className="mt-1"
                       />
                     </div>
-
                     <div>
-                      <Label htmlFor="address">Address</Label>
+                      <Label htmlFor="address">Default Delivery Address</Label>
                       <Input
                         id="address"
                         value={formData.address}
                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        disabled={!isEditing}
-                        className="focus:border-[#1e2875] focus:ring-[#1e2875]"
+                        className="mt-1"
                       />
                     </div>
+                    <Button onClick={handleSave} disabled={saving} className="bg-[#1e2875] text-white">
+                      {saving ? 'Saving...' : 'Save Profile Updates'}
+                    </Button>
+                    {saveMessage && <p className="text-sm text-gray-700">{saveMessage}</p>}
+                  </CardContent>
+                </Card>
 
-                    {isEditing && (
-                      <Button
-                        onClick={handleSave}
-                        className="w-full bg-[#1e2875] hover:bg-[#2a3490] focus:ring-2 focus:ring-yellow-400"
-                      >
-                        Save Changes
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                <Card className="rounded-2xl border-gray-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-bold text-gray-900">Change Password</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                        <Input
+                          id="confirmPassword"
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <Button onClick={handlePasswordSave} variant="outline">Update Password</Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
         </main>
       </div>
     </div>

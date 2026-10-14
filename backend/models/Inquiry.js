@@ -13,7 +13,7 @@ const InquirySchema = new mongoose.Schema({
     {
       message: String,
       timestamp: { type: Date, default: Date.now },
-      responder: { type: String, enum: ['seller', 'buyer'] }
+      responder: { type: String, enum: ['seller', 'buyer', 'caregiver'], default: 'seller' }
     }
   ],
 }, { timestamps: true });

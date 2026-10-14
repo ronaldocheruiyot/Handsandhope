@@ -37,7 +37,9 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, 
             <button
               onClick={() => {
                 try {
-                  // Try to clear local auth state if available
+                  // Try to clear auth state
+                  sessionStorage.removeItem('token');
+                  sessionStorage.removeItem('user');
                   localStorage.removeItem('token');
                   localStorage.removeItem('user');
                 } catch (e) {}

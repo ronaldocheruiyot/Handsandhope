@@ -8,7 +8,10 @@ const testConnection = async () => {
     console.log('🔄 Attempting to connect to MongoDB Atlas...');
     console.log('📍 Connection URI:', process.env.MONGO_URI?.replace(/:[^@]+@/, ':****@'));
 
-    const connection = await mongoose.connect(process.env.MONGO_URI);
+    const connection = await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
     
     console.log('✅ Successfully connected to MongoDB Atlas!');
     console.log('📊 Database:', connection.connection.name);

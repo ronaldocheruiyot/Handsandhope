@@ -116,62 +116,66 @@ export default function Header({
             />
           )}
 
+          {/* Shopping Cart Button (Always visible to both guests & logged-in buyers) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative text-gray-700 hover:text-[#1e2875] focus:ring-2 focus:ring-yellow-400 rounded-full cursor-pointer"
+            onClick={() => navigate('/cart')}
+            aria-label={`Shopping cart with ${cartItemCount} items`}
+          >
+            <ShoppingCart size={22} aria-hidden="true" />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow animate-scale" aria-hidden="true">
+                {cartItemCount}
+              </span>
+            )}
+          </Button>
+
           {isLoggedIn ? (
-            <>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Direct Profile Button */}
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-2 bg-indigo-50/80 hover:bg-indigo-100/80 text-[#1e2875] px-3 py-1.5 rounded-full border border-indigo-200 text-xs sm:text-sm font-semibold transition-all focus:ring-2 focus:ring-yellow-400 cursor-pointer"
+                title="View My Profile & Purchases"
+              >
+                <div className="w-6 h-6 rounded-full bg-[#1e2875] text-white flex items-center justify-center text-xs font-bold">
+                  {(currentUser?.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden md:inline max-w-[120px] truncate">{currentUser?.name || 'My Profile'}</span>
+                <span className="text-[10px] bg-[#1e2875] text-white px-1.5 py-0.5 rounded-full">Buyer</span>
+              </button>
+
               <Button
                 variant="ghost"
-                size="icon"
-                className="relative text-gray-700 hover:text-[#1e2875] focus:ring-2 focus:ring-yellow-400 rounded-full"
-                onClick={() => navigate('/checkout')}
-                aria-label={`Shopping cart with ${cartItemCount} items`}
+                size="sm"
+                onClick={handleLogout}
+                className="text-gray-500 hover:text-red-600 text-xs px-2 sm:px-3 h-8"
+                title="Logout"
               >
-                <ShoppingCart size={24} aria-hidden="true" />
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center" aria-hidden="true">
-                    {cartItemCount}
-                  </span>
-                )}
+                <LogOut size={16} className="mr-1 hidden sm:inline" /> Logout
               </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-gray-700 hover:text-[#1e2875] focus:ring-2 focus:ring-yellow-400 rounded-full" aria-label="User menu">
-                    <User size={24} aria-hidden="true" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <div className="px-3 py-2">
-                    <p className="font-medium">{currentUser?.name || 'User'}</p>
-                    <p className="text-gray-500">{currentUser?.email}</p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User className="mr-2" size={16} aria-hidden="true" />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2" size={16} aria-hidden="true" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => navigate('/login')}
-                className="border-[#1e2875] text-[#1e2875] hover:bg-[#1e2875] hover:text-white focus:ring-2 focus:ring-yellow-400"
+                className="border-[#1e2875] text-[#1e2875] hover:bg-[#1e2875] hover:text-white text-xs sm:text-sm h-9 px-3 font-semibold focus:ring-2 focus:ring-yellow-400"
               >
-                Login
+                Sign In
               </Button>
               <Button
+                size="sm"
                 onClick={() => { window.location.href = 'https://handsandhope-sellers.vercel.app/'; }}
-                className="bg-yellow-400 text-[#1e2875] hover:bg-yellow-500 focus:ring-2 focus:ring-yellow-600"
+                className="bg-yellow-400 text-[#1e2875] hover:bg-yellow-500 text-xs sm:text-sm h-9 px-3 font-bold focus:ring-2 focus:ring-yellow-600 hidden sm:inline-flex"
               >
                 Register as Seller
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>

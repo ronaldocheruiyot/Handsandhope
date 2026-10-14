@@ -83,12 +83,12 @@ export function CaregiverManagementPage() {
     editStoreName: false
   });
 
-  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000';
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
 
   useEffect(() => {
     const fetchCaregivers = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token') || localStorage.getItem('token');
         const [caregiversRes, activitiesRes] = await Promise.all([
           fetch(`${API_URL}/api/dashboard/caregivers`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -98,11 +98,11 @@ export function CaregiverManagementPage() {
           })
         ]);
 
-        const caregiversData = await caregiversRes.json();
-        const activitiesData = await activitiesRes.json();
+        const caregiversData = caregiversRes.ok ? await caregiversRes.json() : [];
+        const activitiesData = activitiesRes.ok ? await activitiesRes.json() : [];
 
-        setCaregivers(caregiversData || []);
-        setActivities(activitiesData || []);
+        setCaregivers(Array.isArray(caregiversData) ? caregiversData : []);
+        setActivities(Array.isArray(activitiesData) ? activitiesData : []);
       } catch (error) {
         console.error('Error loading caregivers:', error);
         toast.error('Failed to load caregivers');
@@ -146,7 +146,7 @@ export function CaregiverManagementPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/dashboard/caregivers`, {
         method: 'POST',
         headers: {
@@ -199,7 +199,7 @@ export function CaregiverManagementPage() {
     if (!selectedCaregiver) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/dashboard/caregivers/${selectedCaregiver.id}/permissions`, {
         method: 'PUT',
         headers: {
@@ -236,7 +236,7 @@ export function CaregiverManagementPage() {
     if (!selectedCaregiver) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/dashboard/caregivers/${selectedCaregiver.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

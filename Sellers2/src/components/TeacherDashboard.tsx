@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardHeader } from './DashboardHeader';
 import { NotificationsPage } from './NotificationsPage';
@@ -168,17 +168,68 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
     voiceNavigation,
     setVoiceNavigation,
   } = useAccessibility();
-  const [students, setStudents] = useState(MOCK_STUDENTS);
-  const [pendingStudents, setPendingStudents] = useState(MOCK_PENDING_STUDENTS);
-  const [pendingProducts, setPendingProducts] = useState(MOCK_PENDING_PRODUCTS);
-  const [activityLog, setActivityLog] = useState(MOCK_ACTIVITY_LOG);
+  const [students, setStudents] = useState<any[]>([]);
+  const [pendingStudents, setPendingStudents] = useState<any[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<any[]>([]);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
+  const [teacherOverview, setTeacherOverview] = useState<any>(null);
+
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
+
+  const fetchTeacherData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [ovRes, sRes, aRes, actRes] = await Promise.all([
+        fetch(`${API_URL}/api/dashboard/teacher/overview`, { headers }),
+        fetch(`${API_URL}/api/dashboard/teacher/students`, { headers }),
+        fetch(`${API_URL}/api/dashboard/teacher/pending-approvals`, { headers }),
+        fetch(`${API_URL}/api/dashboard/teacher/activities`, { headers }),
+      ]);
+
+      if (ovRes.ok) {
+        const ovData = await ovRes.json();
+        setTeacherOverview(ovData);
+      }
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (Array.isArray(sData)) setStudents(sData);
+      }
+      if (aRes.ok) {
+        const aData = await aRes.json();
+        if (Array.isArray(aData.pendingStudents)) setPendingStudents(aData.pendingStudents);
+        if (Array.isArray(aData.pendingProducts)) setPendingProducts(aData.pendingProducts);
+      }
+      if (actRes.ok) {
+        const actData = await actRes.json();
+        if (Array.isArray(actData)) setActivityLog(actData);
+      }
+    } catch (err) {
+      console.error('Failed to load teacher dashboard data:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeacherData();
+  }, []);
 
   const fontSizeClass = fontSize === 'large' ? 'text-lg' : fontSize === 'extra-large' ? 'text-xl' : '';
 
-  const handleApproveStudent = (id: string) => {
+  const handleApproveStudent = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/teacher/students/${id}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchTeacherData();
+    } catch (err) {
+      console.error(err);
+    }
     const student = pendingStudents.find(s => s.id === id);
     if (student) {
       setPendingStudents(pendingStudents.filter(s => s.id !== id));
@@ -207,24 +258,47 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
     }
   };
 
-  const handleRejectStudent = (id: string, reason: string) => {
-    const student = pendingStudents.find(s => s.id === id);
-    if (student && reason.trim()) {
-      setPendingStudents(pendingStudents.filter(s => s.id !== id));
-      
-      // Add to activity log
-      setActivityLog([{
-        id: `log${Date.now()}`,
-        teacherName: 'You',
-        action: 'Rejected student account',
-        details: `Rejected account for ${student.name} - Reason: ${reason}`,
-        timestamp: new Date().toLocaleString(),
-        type: 'account_rejection'
-      }, ...activityLog]);
+  const handleRejectStudent = async (id: string, reason: string) => {
+    if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/teacher/students/${id}/reject`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+        fetchTeacherData();
+      } catch (err) {
+        console.error(err);
+      }
+      const student = pendingStudents.find(s => s.id === id);
+      if (student) {
+        setPendingStudents(pendingStudents.filter(s => s.id !== id));
+        
+        // Add to activity log
+        setActivityLog([{
+          id: `log${Date.now()}`,
+          teacherName: 'You',
+          action: 'Rejected student account',
+          details: `Rejected account for ${student.name} - Reason: ${reason}`,
+          timestamp: new Date().toLocaleString(),
+          type: 'account_rejection'
+        }, ...activityLog]);
+      }
     }
   };
 
-  const handleApproveProduct = (productId: string) => {
+  const handleApproveProduct = async (productId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/teacher/products/${productId}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchTeacherData();
+    } catch (err) {
+      console.error(err);
+    }
     const product = pendingProducts.find(p => p.id === productId);
     if (product) {
       setPendingProducts(pendingProducts.filter(p => p.id !== productId));
@@ -241,20 +315,33 @@ export function TeacherDashboard({ onLogout }: TeacherDashboardProps) {
     }
   };
 
-  const handleRejectProduct = (productId: string, reason: string) => {
-    const product = pendingProducts.find(p => p.id === productId);
-    if (product && reason.trim()) {
-      setPendingProducts(pendingProducts.filter(p => p.id !== productId));
-      
-      // Add to activity log
-      setActivityLog([{
-        id: `log${Date.now()}`,
-        teacherName: 'You',
-        action: 'Rejected product',
-        details: `Rejected "${product.title}" by ${product.studentName} - Reason: ${reason}`,
-        timestamp: new Date().toLocaleString(),
-        type: 'product_rejection'
-      }, ...activityLog]);
+  const handleRejectProduct = async (productId: string, reason: string) => {
+    if (reason.trim()) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/dashboard/teacher/products/${productId}/reject`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason })
+        });
+        fetchTeacherData();
+      } catch (err) {
+        console.error(err);
+      }
+      const product = pendingProducts.find(p => p.id === productId);
+      if (product) {
+        setPendingProducts(pendingProducts.filter(p => p.id !== productId));
+        
+        // Add to activity log
+        setActivityLog([{
+          id: `log${Date.now()}`,
+          teacherName: 'You',
+          action: 'Rejected product',
+          details: `Rejected "${product.title}" by ${product.studentName} - Reason: ${reason}`,
+          timestamp: new Date().toLocaleString(),
+          type: 'product_rejection'
+        }, ...activityLog]);
+      }
     }
   };
 

@@ -16,6 +16,7 @@ const router = express.Router();
  * /api/auth/signup:
  *   post:
  *     summary: Register a new user (seller, caregiver, school, teacher, student).
+ *     description: Create a new account with role-specific profile data.
  *     tags:
  *       - Auth
  *     requestBody:
@@ -24,32 +25,143 @@ const router = express.Router();
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *               businessName:
- *                 type: string
- *               phone:
- *                 type: string
- *               role:
- *                 type: string
- *                 enum: [seller, caregiver, school, teacher, student]
- *               documents:
- *                 type: array
- *                 items:
- *                   type: string
  *             required:
  *               - name
  *               - email
  *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Artisan
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john.artisan@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: Password123!
+ *               role:
+ *                 type: string
+ *                 enum: [seller, caregiver, school, teacher, student]
+ *                 default: seller
+ *                 example: seller
+ *               businessName:
+ *                 type: string
+ *                 example: Hope Craft Studio
+ *               phone:
+ *                 type: string
+ *                 example: "+254712345678"
+ *               disabilityId:
+ *                 type: string
+ *                 example: "DIS-10293"
+ *               schoolName:
+ *                 type: string
+ *                 example: "Hope Special Academy"
+ *               registrationNumber:
+ *                 type: string
+ *                 example: "REG-2026-991"
+ *               schoolAddress:
+ *                 type: string
+ *                 example: "123 Hope Lane, Nairobi"
+ *               schoolContactEmail:
+ *                 type: string
+ *                 format: email
+ *                 example: "admin@hopeacademy.org"
+ *               schoolContactPhone:
+ *                 type: string
+ *                 example: "+254700112233"
+ *               schoolId:
+ *                 type: string
+ *                 example: "65f1a2b3c4d5e6f7a8b9c0d1"
+ *               subject:
+ *                 type: string
+ *                 example: "Vocational Arts & Crafts"
+ *               staffId:
+ *                 type: string
+ *                 example: "STF-889"
+ *               studentId:
+ *                 type: string
+ *                 example: "STD-2026-44"
+ *               documents:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["https://example.com/certificates/disability_cert.pdf"]
+ *               schoolDocuments:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["https://example.com/certificates/school_reg.pdf"]
+ *           examples:
+ *             Seller:
+ *               summary: Example Seller Registration
+ *               value:
+ *                 name: "Alice Mwangi"
+ *                 email: "alice.seller@example.com"
+ *                 password: "Password123!"
+ *                 role: "seller"
+ *                 businessName: "Alice Beadworks & Crafts"
+ *                 phone: "+254712345678"
+ *                 disabilityId: "DIS-7788"
+ *                 documents: []
+ *             Student:
+ *               summary: Example Student Registration
+ *               value:
+ *                 name: "David Kip"
+ *                 email: "david.student@example.com"
+ *                 password: "Password123!"
+ *                 role: "student"
+ *                 schoolName: "Hope Special Academy"
+ *                 studentId: "STD-2026-01"
+ *                 disabilityId: "DIS-9911"
+ *                 documents: []
+ *             Teacher:
+ *               summary: Example Teacher Registration
+ *               value:
+ *                 name: "Teacher Sarah"
+ *                 email: "sarah.teacher@example.com"
+ *                 password: "Password123!"
+ *                 role: "teacher"
+ *                 schoolName: "Hope Special Academy"
+ *                 subject: "Pottery & Weaving"
+ *                 staffId: "TCH-501"
+ *                 documents: []
+ *             School:
+ *               summary: Example School Registration
+ *               value:
+ *                 name: "Principal Michael"
+ *                 email: "michael.school@example.com"
+ *                 password: "Password123!"
+ *                 role: "school"
+ *                 schoolName: "Hope Special Academy"
+ *                 registrationNumber: "SCH-KE-4402"
+ *                 schoolAddress: "P.O. Box 4500, Nairobi"
+ *                 schoolContactEmail: "info@hopespecial.edu"
+ *                 schoolContactPhone: "+254700000000"
+ *                 schoolDocuments: []
+ *             Caregiver:
+ *               summary: Example Caregiver Registration
+ *               value:
+ *                 name: "Grace Caregiver"
+ *                 email: "grace.caregiver@example.com"
+ *                 password: "Password123!"
+ *                 role: "caregiver"
+ *                 phone: "+254722334455"
+ *                 documents: []
  *     responses:
  *       201:
  *         description: User created successfully.
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: "User created successfully"
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               user:
+ *                 id: "65f1a2b3c4d5e6f7a8b9c0d1"
+ *                 name: "Alice Mwangi"
+ *                 email: "alice.seller@example.com"
+ *                 role: "seller"
  *       400:
  *         description: Validation error or email already registered.
  */
@@ -85,7 +197,7 @@ router.post("/signup", async (req, res) => {
     if (exists) return res.status(400).json({ error: 'Email already registered' });
 
     // Create user record
-    const user = new User({ name, email, password, businessName, phone, role, documents });
+    const user = new User({ name, email, password, businessName, phone, role, disabilityId, documents });
     await user.save();
 
     let extra = {};
@@ -93,7 +205,7 @@ router.post("/signup", async (req, res) => {
     // If seller, create Seller doc to keep sellers in separate collection
     if (role === 'seller') {
       try {
-        const seller = new Seller({ user: user._id, businessName, phone, documents });
+        const seller = new Seller({ user: user._id, businessName, phone, disabilityId, documents });
         await seller.save();
         console.log(`Created Seller ${seller._id} for user ${user._id}`);
         extra.seller = seller;
@@ -186,6 +298,19 @@ router.post("/signup", async (req, res) => {
       extra.student = student;
     }
 
+    // Teachers, students, and new schools stay signed out until an administrator approves them.
+    if (role === 'teacher' || role === 'student' || role === 'school') {
+      user.active = false;
+      user.approvalStatus = 'pending';
+      await user.save();
+      return res.status(201).json({
+        message: 'Account created. An administrator must approve it before you can sign in.',
+        pendingApproval: true,
+        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        extra
+      });
+    }
+
     // create token on signup
     const secret = process.env.JWT_SECRET || "secretKey";
     const token = jwt.sign({ id: user._id, role: user.role }, secret, { expiresIn: "1d" });
@@ -202,6 +327,7 @@ router.post("/signup", async (req, res) => {
  * /api/auth/login:
  *   post:
  *     summary: Login and get JWT token.
+ *     description: Authenticate user using email and password to receive a bearer JWT token.
  *     tags:
  *       - Auth
  *     requestBody:
@@ -210,20 +336,63 @@ router.post("/signup", async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: alice.seller@example.com
  *               password:
  *                 type: string
- *             required:
- *               - email
- *               - password
+ *                 format: password
+ *                 example: Password123!
+ *           examples:
+ *             SellerLogin:
+ *               summary: Seller Login Example
+ *               value:
+ *                 email: "alice.seller@example.com"
+ *                 password: "Password123!"
+ *             StudentLogin:
+ *               summary: Student Login Example
+ *               value:
+ *                 email: "david.student@example.com"
+ *                 password: "Password123!"
+ *             TeacherLogin:
+ *               summary: Teacher Login Example
+ *               value:
+ *                 email: "sarah.teacher@example.com"
+ *                 password: "Password123!"
+ *             SchoolLogin:
+ *               summary: School Admin Login Example
+ *               value:
+ *                 email: "michael.school@example.com"
+ *                 password: "Password123!"
+ *             CaregiverLogin:
+ *               summary: Caregiver Login Example
+ *               value:
+ *                 email: "grace.caregiver@example.com"
+ *                 password: "Password123!"
  *     responses:
  *       200:
- *         description: Login successful, returns token and user.
+ *         description: Login successful, returns token and user profile.
+ *         content:
+ *           application/json:
+ *             example:
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               user:
+ *                 id: "65f1a2b3c4d5e6f7a8b9c0d1"
+ *                 name: "Alice Mwangi"
+ *                 email: "alice.seller@example.com"
+ *                 phone: "+254712345678"
+ *                 businessName: "Alice Beadworks & Crafts"
+ *                 role: "seller"
+ *                 school: null
  *       400:
  *         description: Invalid credentials or user not found.
+ *       500:
+ *         description: Server error.
  */
 // Login
 router.post("/login", async (req, res) => {
@@ -235,6 +404,9 @@ router.post("/login", async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: "Invalid password. Please try again." });
+    if (user.isBanned) return res.status(403).json({ error: "This account has been suspended. Contact support." });
+    if (user.approvalStatus === 'pending') return res.status(403).json({ error: "Your account is waiting for approval." });
+    if (user.active === false) return res.status(403).json({ error: "This account is deactivated." });
 
     const secret = process.env.JWT_SECRET || "secretKey";
     const token = jwt.sign({ id: user._id, role: user.role }, secret, { expiresIn: "1d" });
@@ -250,6 +422,28 @@ router.post("/login", async (req, res) => {
         role: user.role,
         school: user.school,
       },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/forgot-password - Ask an administrator to reset the password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+    if (user) {
+      user.passwordResetRequested = true;
+      user.passwordResetRequestedAt = new Date();
+      await user.save();
+    }
+
+    res.json({
+      message: "If that email is registered, an administrator can now reset the password from the admin panel."
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

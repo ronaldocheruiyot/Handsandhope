@@ -5,7 +5,17 @@ const TeacherSchema = new mongoose.Schema({
   school: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
   subject: String,
   staffId: String,
-  documents: [],
+  documents: [
+    {
+      url: String,
+      filename: String,
+      storedName: String,
+      mimeType: String,
+      size: Number,
+      verified: { type: Boolean, default: false },
+      uploadedAt: { type: Date, default: Date.now }
+    }
+  ],
 }, { timestamps: true });
 
 const Teacher = mongoose.model('Teacher', TeacherSchema);

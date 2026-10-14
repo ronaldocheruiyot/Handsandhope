@@ -1,4 +1,12 @@
 import mongoose from "mongoose";
+import dns from "dns";
+
+// Fix querySrv ETIMEOUT for MongoDB Atlas on Windows/local DNS
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  console.warn('Could not set custom DNS servers:', e.message);
+}
 
 const connectDB = async () => {
   try {
@@ -12,19 +20,26 @@ const connectDB = async () => {
     });
     
     mongoose.connection.on('disconnected', () => {
-      console.log('⚠️ MongoDB disconnected');
+      console.log('⚠️ MongoDB disconnected, attempting auto-reconnect...');
     });
     
     mongoose.connection.on('reconnected', () => {
       console.log('🔄 MongoDB reconnected');
     });
     
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      retryWrites: true,
+      w: 'majority',
+    });
     
   } catch (error) {
     console.error("❌ MongoDB connection failed:", error.message);
     console.log("⚠️ Server will continue running without database connection");
-    // Don't exit the process, let the server continue running
   }
 };
 

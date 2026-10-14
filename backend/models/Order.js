@@ -8,14 +8,17 @@ const OrderSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'cancelled', 'refunded'],
+    enum: ['pending', 'shipped', 'in_transit', 'completed', 'cancelled', 'refunded'],
     default: 'pending'
   },
   quantity: { type: Number, default: 1 },
   buyerEmail: String,
   buyerName: String,
+  shippingAddress: String,
+  paymentMethod: String,
   shippingMethod: { type: String, enum: ['self', 'platform'], default: 'platform' },
   trackingNumber: String,
+  trackingConsent: { type: Boolean, default: false },
   rating: Number,
   feedback: String,
   refundStatus: { type: String, enum: ['none', 'requested', 'approved', 'rejected'], default: 'none' },

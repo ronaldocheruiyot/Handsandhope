@@ -15,17 +15,42 @@ type Page = 'login' | 'register' | 'dashboard' | 'admin-dashboard';
 type UserRole = 'seller' | 'teacher' | 'student' | 'school' | 'super-admin' | 'admin' | 'caregiver' | null;
 
 function AppContent() {
-  const { user, login: authLogin, logout: authLogout } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('login');
-  const [isHydrated, setIsHydrated] = useState(false);
+  const { user, logout: authLogout } = useAuth();
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    if (typeof window === 'undefined') return 'login';
+    const savedToken = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const savedUser = sessionStorage.getItem('user') || localStorage.getItem('user');
+    if (savedToken && savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed.role === 'super-admin' || parsed.role === 'admin') {
+          return 'admin-dashboard';
+        }
+        return 'dashboard';
+      } catch {
+        return 'login';
+      }
+    }
+    return 'login';
+  });
 
   useEffect(() => {
-    console.debug('Auth user changed:', user);
-    setIsHydrated(true);
+    if (user) {
+      if (currentPage === 'login') {
+        if (user.role === 'super-admin' || user.role === 'admin') {
+          setCurrentPage('admin-dashboard');
+        } else {
+          setCurrentPage('dashboard');
+        }
+      }
+    } else {
+      if (currentPage !== 'register') {
+        setCurrentPage('login');
+      }
+    }
   }, [user]);
 
   const handleLogin = (role: UserRole) => {
-    // User is already set in context via login call in LoginPage
     if (role === 'super-admin' || role === 'admin') {
       setCurrentPage('admin-dashboard');
     } else {
@@ -33,8 +58,7 @@ function AppContent() {
     }
   };
 
-  const handleRegister = (role: UserRole) => {
-    // User is set in context after successful registration
+  const handleRegister = (_role: UserRole) => {
     setCurrentPage('dashboard');
   };
 
@@ -42,17 +66,6 @@ function AppContent() {
     authLogout();
     setCurrentPage('login');
   };
-
-  // Show loading while auth rehydrates
-  if (!isHydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg">Loading authentication...</p>
-        </div>
-      </div>
-    );
-  }
 
   // If not authenticated and not on login/register, show login
   if (!user && currentPage !== 'login' && currentPage !== 'register') {
@@ -110,6 +123,14 @@ function AppContent() {
       {currentPage === 'dashboard' && user && user.role === 'caregiver' && (
         <ErrorBoundary>
           <CaregiverDashboard onLogout={handleLogout} />
+        </ErrorBoundary>
+      )}
+
+      {/* Fallback for any unmatched logged-in role to ensure page is never blank */}
+      {user && (currentPage === 'dashboard' || currentPage === 'admin-dashboard') && 
+       !['super-admin', 'admin', 'school', 'teacher', 'seller', 'student', 'caregiver'].includes(user.role) && (
+        <ErrorBoundary>
+          <SellerDashboard onLogout={handleLogout} userRole="seller" />
         </ErrorBoundary>
       )}
     </div>

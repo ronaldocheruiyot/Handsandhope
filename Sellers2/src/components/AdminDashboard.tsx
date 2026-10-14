@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Shield, Users, Building2, GraduationCap, UserCheck, UserX, 
   DollarSign, TrendingUp, Package, AlertTriangle, Eye, MapPin,
@@ -42,81 +42,60 @@ interface AdminDashboardProps {
   adminRole: 'super-admin' | 'admin';
 }
 
-// Mock Data
-const MOCK_PENDING_ACCOUNTS = [
-  { 
-    id: 'pa1', 
-    type: 'individual', 
-    name: 'John Anderson', 
-    email: 'john@example.com', 
-    disabilityId: 'DIS-2024-301',
-    documents: ['disability_certificate.pdf', 'id_document.pdf'],
-    location: 'Nairobi, Kenya',
-    requestedDate: '2024-11-14',
-    status: 'pending'
-  },
-  { 
-    id: 'pa2', 
-    type: 'school', 
-    name: 'Bright Future Academy', 
-    email: 'admin@brightfuture.edu', 
-    registrationNumber: 'SCH-2024-445',
-    documents: ['school_license.pdf', 'registration_certificate.pdf'],
-    location: 'Mombasa, Kenya',
-    requestedDate: '2024-11-15',
-    status: 'pending'
-  },
-];
-
-const MOCK_ALL_USERS = [
-  { id: 'u1', type: 'individual', name: 'Sarah Williams', email: 'sarah@example.com', status: 'active', location: 'Nairobi', joinDate: '2024-09-15', totalSales: 2450.00, productsListed: 8 },
-  { id: 'u2', type: 'school', name: 'Hope Academy', email: 'admin@hope.edu', status: 'active', location: 'Kisumu', joinDate: '2024-08-10', teachers: 15, students: 120 },
-  { id: 'u3', type: 'buyer', name: 'Michael Chen', email: 'michael@example.com', status: 'active', location: 'Nairobi', joinDate: '2024-10-20', totalPurchases: 890.50 },
-  { id: 'u4', type: 'individual', name: 'Emma Johnson', email: 'emma@example.com', status: 'banned', location: 'Mombasa', joinDate: '2024-10-01', banReason: 'Fraudulent activity', bannedDate: '2024-11-10' },
-];
-
-const MOCK_TRANSACTIONS = [
-  { id: 't1', userId: 'u1', userName: 'Sarah Williams', type: 'sale', amount: 45.00, product: 'Ceramic Bowl', date: '2024-11-15 10:30 AM', status: 'completed' },
-  { id: 't2', userId: 'u3', userName: 'Michael Chen', type: 'purchase', amount: 120.00, product: 'Painting', date: '2024-11-14 2:45 PM', status: 'completed' },
-  { id: 't3', userId: 'u1', userName: 'Sarah Williams', type: 'withdrawal', amount: 280.50, method: 'Bank Transfer', date: '2024-11-13 11:20 AM', status: 'completed' },
-];
-
-const MOCK_PENDING_PRODUCTS = [
-  { id: 'pp1', sellerId: 'u1', sellerName: 'Sarah Williams', productName: 'Hand-painted Vase', price: 65.00, category: 'Pottery', images: 4, submittedDate: '2024-11-14', documents: ['product_photo_1.jpg', 'product_photo_2.jpg'] },
-  { id: 'pp2', sellerId: 'u4', sellerName: 'Emma Johnson', productName: 'Wooden Sculpture', price: 150.00, category: 'Woodwork', images: 5, submittedDate: '2024-11-15', documents: ['product_photo_1.jpg'] },
-];
-
-const MOCK_REPORTS = [
-  { id: 'r1', reporterId: 'u3', reporterName: 'Michael Chen', reportedUser: 'Sarah Williams', reportedUserId: 'u1', reason: 'Product not as described', date: '2024-11-12', status: 'pending' },
-  { id: 'r2', reporterId: 'u2', reporterName: 'Hope Academy', reportedUser: 'Emma Johnson', reportedUserId: 'u4', reason: 'Inappropriate behavior', date: '2024-11-10', status: 'resolved' },
-];
-
-const MOCK_SIGNUP_STATS = {
-  daily: { individuals: 3, schools: 0, students: 5, teachers: 1, buyers: 8 },
-  weekly: { individuals: 15, schools: 2, students: 32, teachers: 6, buyers: 45 },
-  monthly: { individuals: 68, schools: 8, students: 145, teachers: 28, buyers: 234 },
-  yearly: { individuals: 420, schools: 45, students: 1250, teachers: 180, buyers: 1890 },
-};
-
-const MOCK_LOCATION_DATA = [
-  { location: 'Nairobi', schools: 25, teachers: 180, students: 1240, individuals: 150, buyers: 890 },
-  { location: 'Mombasa', schools: 15, teachers: 95, students: 680, individuals: 85, buyers: 450 },
-  { location: 'Kisumu', schools: 12, teachers: 78, students: 520, individuals: 62, buyers: 320 },
-];
-
-const MOCK_ADMINS = [
-  { id: 'a1', name: 'Super Admin', email: 'superadmin@handsandhope.com', role: 'super-admin', createdDate: '2024-01-01', lastLogin: '2024-11-16 09:00 AM', status: 'active' },
-  { id: 'a2', name: 'John Smith', email: 'john.smith@handsandhope.com', role: 'admin', createdDate: '2024-06-15', lastLogin: '2024-11-15 3:30 PM', status: 'active', createdBy: 'Super Admin' },
-];
+const emptySignup = { individuals: 0, schools: 0, students: 0, teachers: 0, buyers: 0 };
 
 export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
   const [currentPage, setCurrentPage] = useState<AdminPage>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  const [impersonateUser, setImpersonateUser] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [pendingAccounts, setPendingAccounts] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [signupStats, setSignupStats] = useState({ daily: { ...emptySignup }, weekly: { ...emptySignup }, monthly: { ...emptySignup }, yearly: { ...emptySignup } });
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [newAdmin, setNewAdmin] = useState({ name: '', email: '', role: 'admin' });
+  const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://handsandhope-31gp.onrender.com');
+
+  const authHeaders = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || '';
+    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  };
+
+  const loadAdminData = async () => {
+    try {
+      const headers = authHeaders();
+      const [overviewRes, usersRes, pendingRes, productsRes, txRes, adminsRes] = await Promise.all([
+        fetch(`${API_URL}/api/dashboard/admin/overview`, { headers }),
+        fetch(`${API_URL}/api/dashboard/admin/users`, { headers }),
+        fetch(`${API_URL}/api/dashboard/admin/pending-accounts`, { headers }),
+        fetch(`${API_URL}/api/dashboard/admin/products`, { headers }),
+        fetch(`${API_URL}/api/dashboard/admin/transactions`, { headers }),
+        fetch(`${API_URL}/api/dashboard/admin/admins`, { headers }),
+      ]);
+      if (overviewRes.ok) {
+        const overview = await overviewRes.json();
+        if (overview.signupStats) setSignupStats(overview.signupStats);
+        if (Array.isArray(overview.transactions)) setTransactions(overview.transactions);
+        setReports(Array.from({ length: overview.counts?.pendingReports || 0 }, (_, i) => ({ id: `r${i}`, status: 'pending' })));
+      }
+      if (usersRes.ok) setAllUsers(await usersRes.json());
+      if (pendingRes.ok) setPendingAccounts(await pendingRes.json());
+      if (productsRes.ok) setPendingProducts(await productsRes.json());
+      if (txRes.ok) setTransactions(await txRes.json());
+      if (adminsRes.ok) setAdmins(await adminsRes.json());
+    } catch (err) {
+      console.error('Failed to load admin data', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAdminData();
+  }, []);
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -127,49 +106,104 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
     return password;
   };
 
-  const handleApproveAccount = (accountId: string) => {
-    alert(`Account ${accountId} approved successfully!`);
+  const handleApproveAccount = async (accountId: string) => {
+    const res = await fetch(`${API_URL}/api/dashboard/admin/accounts/${accountId}/approve`, { method: 'PUT', headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not approve account');
+    alert('Account approved.');
+    loadAdminData();
   };
 
-  const handleDeclineAccount = (accountId: string, reason: string) => {
-    if (reason.trim()) {
-      alert(`Account ${accountId} declined. Reason: ${reason}`);
-    }
+  const handleDeclineAccount = async (accountId: string, reason: string) => {
+    if (!reason.trim()) return;
+    const res = await fetch(`${API_URL}/api/dashboard/admin/accounts/${accountId}/decline`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not decline account');
+    alert('Account declined.');
+    loadAdminData();
   };
 
-  const handleBanUser = (userId: string, reason: string) => {
-    if (reason.trim()) {
-      alert(`User ${userId} banned. Reason: ${reason}`);
-    }
+  const handleBanUser = async (userId: string, reason: string) => {
+    if (!reason.trim()) return;
+    const res = await fetch(`${API_URL}/api/dashboard/admin/users/${userId}/ban`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not ban user');
+    alert('User banned.');
+    loadAdminData();
   };
 
-  const handleActivateUser = (userId: string) => {
-    alert(`User ${userId} reactivated successfully!`);
+  const handleActivateUser = async (userId: string) => {
+    const res = await fetch(`${API_URL}/api/dashboard/admin/users/${userId}/activate`, { method: 'PUT', headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not reactivate user');
+    alert('User reactivated.');
+    loadAdminData();
   };
 
-  const handleApproveProduct = (productId: string) => {
-    alert(`Product ${productId} approved!`);
+  const handleResetPassword = async (userId: string) => {
+    const res = await fetch(`${API_URL}/api/dashboard/admin/users/${userId}/reset-password`, { method: 'PUT', headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not reset password');
+    alert(`Temporary password for ${data.email}: ${data.temporaryPassword}`);
+    loadAdminData();
   };
 
-  const handleDeclineProduct = (productId: string, reason: string) => {
-    if (reason.trim()) {
-      alert(`Product ${productId} declined. Reason: ${reason}`);
-    }
+  const handleApproveProduct = async (productId: string) => {
+    const res = await fetch(`${API_URL}/api/dashboard/admin/products/${productId}/approve`, { method: 'PUT', headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not approve product');
+    alert('Product approved.');
+    loadAdminData();
   };
 
-  const handleControlMoney = (userId: string, action: 'release' | 'hold', amount: number) => {
-    alert(`${action === 'release' ? 'Released' : 'Put on hold'} $${amount} for user ${userId}`);
+  const handleDeclineProduct = async (productId: string, reason: string) => {
+    if (!reason.trim()) return;
+    const res = await fetch(`${API_URL}/api/dashboard/admin/products/${productId}/reject`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not decline product');
+    alert('Product declined.');
+    loadAdminData();
   };
 
-  const handleImpersonate = (userId: string) => {
-    if (confirm(`Are you sure you want to login as this user? This action will be logged.`)) {
-      setImpersonateUser(userId);
-      alert(`Now viewing as user ${userId}. All actions are being logged.`);
-    }
+  const handleCreateAdmin = async () => {
+    if (!newAdmin.name || !newAdmin.email) return alert('Name and email are required');
+    const res = await fetch(`${API_URL}/api/dashboard/admin/admins`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(newAdmin),
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Could not create admin');
+    alert(`Admin created.\nEmail: ${data.admin.email}\nTemporary password: ${data.temporaryPassword}`);
+    setNewAdmin({ name: '', email: '', role: 'admin' });
+    setShowCreateAdmin(false);
+    loadAdminData();
   };
 
   const handleExportData = (dataType: string) => {
-    alert(`Exporting ${dataType} data...`);
+    const rows = dataType === 'users' ? allUsers : transactions;
+    if (!rows.length) return alert('Nothing to export yet.');
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(','), ...rows.map((row: any) => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${dataType}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -192,8 +226,8 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
             { id: 'users', label: 'All Users', icon: Users },
-            { id: 'accounts-pending', label: 'Pending Approvals', icon: Clock, badge: MOCK_PENDING_ACCOUNTS.length },
-            { id: 'products', label: 'Product Approvals', icon: Package, badge: MOCK_PENDING_PRODUCTS.length },
+            { id: 'accounts-pending', label: 'Pending Approvals', icon: Clock, badge: pendingAccounts.length },
+            { id: 'products', label: 'Product Approvals', icon: Package, badge: pendingProducts.length },
             { id: 'caregivers', label: 'Caregiver Management', icon: UserPlus },
             { id: 'transactions', label: 'Transactions', icon: DollarSign },
             { id: 'funds-on-hold', label: 'Funds on Hold', icon: Wallet },
@@ -202,7 +236,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
             { id: 'messages', label: 'Messages & Inquiries', icon: MessageSquare },
             { id: 'locations', label: 'Locations', icon: MapPin },
             { id: 'hierarchy', label: 'School Hierarchy', icon: School },
-            { id: 'reports', label: 'Reports', icon: AlertTriangle, badge: MOCK_REPORTS.filter(r => r.status === 'pending').length },
+            { id: 'reports', label: 'Reports', icon: AlertTriangle, badge: reports.filter(r => r.status === 'pending').length },
             { id: 'deactivated', label: 'Deactivated Accounts', icon: UserX },
             ...(adminRole === 'super-admin' ? [{ id: 'admins' as AdminPage, label: 'Admin Management', icon: UserCog }] : []),
             { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -253,20 +287,6 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
               <p className="text-sm text-gray-400 mt-1">Hands and Hope Platform Control Center</p>
             </div>
             <div className="flex items-center gap-4">
-              {impersonateUser && (
-                <div className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-lg">
-                  <Eye className="h-4 w-4" />
-                  <span className="text-sm font-semibold">Viewing as User</span>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="ml-2 h-6 text-xs"
-                    onClick={() => setImpersonateUser(null)}
-                  >
-                    Exit
-                  </Button>
-                </div>
-              )}
               <Button variant="outline" size="sm" className="gap-2 border-gray-600 text-gray-300">
                 <Bell className="h-4 w-4" />
                 <Badge variant="destructive" className="text-xs">3</Badge>
@@ -287,7 +307,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-blue-100">Total Users</p>
-                        <h2 className="text-3xl font-bold mt-2">{MOCK_ALL_USERS.length}</h2>
+                        <h2 className="text-3xl font-bold mt-2">{allUsers.length}</h2>
                       </div>
                       <Users className="h-12 w-12 opacity-80" />
                     </div>
@@ -299,7 +319,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-purple-100">Pending Approvals</p>
-                        <h2 className="text-3xl font-bold mt-2">{MOCK_PENDING_ACCOUNTS.length}</h2>
+                        <h2 className="text-3xl font-bold mt-2">{pendingAccounts.length}</h2>
                       </div>
                       <Clock className="h-12 w-12 opacity-80" />
                     </div>
@@ -311,7 +331,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-green-100">Total Transactions</p>
-                        <h2 className="text-3xl font-bold mt-2">{MOCK_TRANSACTIONS.length}</h2>
+                        <h2 className="text-3xl font-bold mt-2">{transactions.length}</h2>
                       </div>
                       <DollarSign className="h-12 w-12 opacity-80" />
                     </div>
@@ -323,7 +343,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-orange-100">Pending Reports</p>
-                        <h2 className="text-3xl font-bold mt-2">{MOCK_REPORTS.filter(r => r.status === 'pending').length}</h2>
+                        <h2 className="text-3xl font-bold mt-2">{reports.filter(r => r.status === 'pending').length}</h2>
                       </div>
                       <AlertTriangle className="h-12 w-12 opacity-80" />
                     </div>
@@ -387,7 +407,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {MOCK_TRANSACTIONS.slice(0, 5).map((transaction) => (
+                    {transactions.slice(0, 5).map((transaction) => (
                       <div key={transaction.id} className="flex items-center justify-between py-3 border-b border-gray-700">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -431,7 +451,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                 </Button>
               </div>
 
-              {MOCK_PENDING_ACCOUNTS.map((account) => (
+              {pendingAccounts.map((account) => (
                 <Card key={account.id} className="bg-gray-800 border-gray-700">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -479,7 +499,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div>
                       <Label className="text-gray-400">Uploaded Documents</Label>
                       <div className="flex gap-2 mt-2">
-                        {account.documents.map((doc, idx) => (
+                        {(account.documents || []).map((doc: string, idx: number) => (
                           <Button key={idx} variant="outline" size="sm" className="gap-2 border-gray-600 text-gray-300">
                             <FileText className="h-4 w-4" />
                             {doc}
@@ -538,7 +558,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                 </Card>
               ))}
 
-              {MOCK_PENDING_ACCOUNTS.length === 0 && (
+              {pendingAccounts.length === 0 && (
                 <Card className="bg-gray-800 border-gray-700 p-12 text-center">
                   <CheckCircle className="h-16 w-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-white">No Pending Approvals</h3>
@@ -570,7 +590,11 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                 </Button>
               </div>
 
-              {MOCK_ALL_USERS.filter(u => u.status === 'active').map((user) => (
+              {allUsers.filter(u => {
+                const q = searchQuery.trim().toLowerCase();
+                if (!q) return true;
+                return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+              }).map((user) => (
                 <Card key={user.id} className="bg-gray-800 border-gray-700">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -583,7 +607,8 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                           <p className="text-sm text-gray-400">{user.email}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline">{user.type}</Badge>
-                            <Badge variant="default" className="bg-green-600">Active</Badge>
+                            <Badge variant="default" className={user.status === 'active' ? 'bg-green-600' : 'bg-red-600'}>{user.status}</Badge>
+                            {user.passwordResetRequested && <Badge variant="secondary">Password reset requested</Badge>}
                           </div>
                         </div>
                       </div>
@@ -592,10 +617,10 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                           size="sm"
                           variant="outline"
                           className="gap-2 border-gray-600 text-gray-300"
-                          onClick={() => handleImpersonate(user.id)}
+                          onClick={() => handleResetPassword(user.id)}
                         >
-                          <Eye className="h-4 w-4" />
-                          View as User
+                          <Key className="h-4 w-4" />
+                          Reset Password
                         </Button>
                         <Button
                           size="sm"
@@ -655,14 +680,14 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                         )}
                       </div>
                       <div className="flex gap-3">
-                        <Button size="sm" variant="outline" className="gap-2 border-gray-600 text-gray-300">
+                        <Button size="sm" variant="outline" className="gap-2 border-gray-600 text-gray-300" onClick={() => setCurrentPage('transactions')}>
                           <History className="h-4 w-4" />
                           View Transaction History
                         </Button>
-                        {user.type === 'individual' && (
-                          <Button size="sm" variant="outline" className="gap-2 border-gray-600 text-gray-300">
-                            <DollarSign className="h-4 w-4" />
-                            Control Money
+                        {user.status !== 'active' && (
+                          <Button size="sm" className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => handleActivateUser(user.id)}>
+                            <UserCheck className="h-4 w-4" />
+                            Reactivate
                           </Button>
                         )}
                         <Dialog>
@@ -713,7 +738,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
             <div className="space-y-6">
               <p className="text-gray-400">Review and approve product listings from sellers</p>
 
-              {MOCK_PENDING_PRODUCTS.map((product) => (
+              {pendingProducts.map((product) => (
                 <Card key={product.id} className="bg-gray-800 border-gray-700">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -726,7 +751,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-green-400">${product.price.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-400">${Number(product.price || 0).toFixed(2)}</p>
                         <p className="text-sm text-gray-400">{product.submittedDate}</p>
                       </div>
                     </div>
@@ -735,7 +760,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                     <div>
                       <Label className="text-gray-400">Product Images</Label>
                       <div className="flex gap-2 mt-2">
-                        {product.documents.map((doc, idx) => (
+                        {(product.documents || []).map((doc: string, idx: number) => (
                           <Button key={idx} variant="outline" size="sm" className="gap-2 border-gray-600 text-gray-300">
                             <Eye className="h-4 w-4" />
                             Image {idx + 1}
@@ -788,7 +813,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                 </Card>
               ))}
 
-              {MOCK_PENDING_PRODUCTS.length === 0 && (
+              {pendingProducts.length === 0 && (
                 <Card className="bg-gray-800 border-gray-700 p-12 text-center">
                   <CheckCircle className="h-16 w-16 text-gray-600 mx-auto mb-4" />
                   <h3 className="text-white">No Pending Products</h3>
@@ -841,7 +866,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                         </tr>
                       </thead>
                       <tbody>
-                        {MOCK_TRANSACTIONS.map((transaction) => (
+                        {transactions.map((transaction) => (
                           <tr key={transaction.id} className="border-b border-gray-700 hover:bg-gray-700/50">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
@@ -912,7 +937,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                   <CardContent className="p-6">
                     <div className="text-center">
                       <p className="text-sm text-blue-100">Individuals</p>
-                      <h2 className="text-3xl font-bold text-white mt-2">{MOCK_SIGNUP_STATS[timeFilter].individuals}</h2>
+                      <h2 className="text-3xl font-bold text-white mt-2">{signupStats[timeFilter].individuals}</h2>
                       <p className="text-xs text-blue-100 mt-1">New sign-ups</p>
                     </div>
                   </CardContent>
@@ -922,7 +947,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                   <CardContent className="p-6">
                     <div className="text-center">
                       <p className="text-sm text-purple-100">Schools</p>
-                      <h2 className="text-3xl font-bold text-white mt-2">{MOCK_SIGNUP_STATS[timeFilter].schools}</h2>
+                      <h2 className="text-3xl font-bold text-white mt-2">{signupStats[timeFilter].schools}</h2>
                       <p className="text-xs text-purple-100 mt-1">New sign-ups</p>
                     </div>
                   </CardContent>
@@ -932,7 +957,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                   <CardContent className="p-6">
                     <div className="text-center">
                       <p className="text-sm text-green-100">Students</p>
-                      <h2 className="text-3xl font-bold text-white mt-2">{MOCK_SIGNUP_STATS[timeFilter].students}</h2>
+                      <h2 className="text-3xl font-bold text-white mt-2">{signupStats[timeFilter].students}</h2>
                       <p className="text-xs text-green-100 mt-1">New sign-ups</p>
                     </div>
                   </CardContent>
@@ -942,7 +967,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                   <CardContent className="p-6">
                     <div className="text-center">
                       <p className="text-sm text-orange-100">Teachers</p>
-                      <h2 className="text-3xl font-bold text-white mt-2">{MOCK_SIGNUP_STATS[timeFilter].teachers}</h2>
+                      <h2 className="text-3xl font-bold text-white mt-2">{signupStats[timeFilter].teachers}</h2>
                       <p className="text-xs text-orange-100 mt-1">New sign-ups</p>
                     </div>
                   </CardContent>
@@ -952,7 +977,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                   <CardContent className="p-6">
                     <div className="text-center">
                       <p className="text-sm text-pink-100">Buyers</p>
-                      <h2 className="text-3xl font-bold text-white mt-2">{MOCK_SIGNUP_STATS[timeFilter].buyers}</h2>
+                      <h2 className="text-3xl font-bold text-white mt-2">{signupStats[timeFilter].buyers}</h2>
                       <p className="text-xs text-pink-100 mt-1">New sign-ups</p>
                     </div>
                   </CardContent>
@@ -1070,6 +1095,8 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                         <Label className="text-gray-300">Full Name *</Label>
                         <Input 
                           placeholder="John Doe"
+                          value={newAdmin.name}
+                          onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
                           className="bg-gray-900 border-gray-700 text-white"
                         />
                       </div>
@@ -1078,12 +1105,14 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                         <Input 
                           type="email"
                           placeholder="john.doe@handsandhope.com"
+                          value={newAdmin.email}
+                          onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
                           className="bg-gray-900 border-gray-700 text-white"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-gray-300">Role *</Label>
-                        <Select>
+                        <Select value={newAdmin.role} onValueChange={(value) => setNewAdmin({ ...newAdmin, role: value })}>
                           <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
@@ -1095,10 +1124,10 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
                       </div>
                       <div className="bg-blue-900/20 border border-blue-600 p-4 rounded-lg">
                         <p className="text-blue-200 text-sm">
-                          📧 A temporary password will be generated and emailed to the new admin
+                          A temporary password is shown once after the account is created. Share it with the new admin.
                         </p>
                       </div>
-                      <Button className="w-full bg-green-600 hover:bg-green-700">
+                      <Button type="button" className="w-full bg-green-600 hover:bg-green-700" onClick={handleCreateAdmin}>
                         Create Admin Account
                       </Button>
                     </div>
@@ -1107,7 +1136,7 @@ export function AdminDashboard({ onLogout, adminRole }: AdminDashboardProps) {
               </div>
 
               {/* Admin Accounts List */}
-              {MOCK_ADMINS.map((admin) => (
+              {admins.map((admin) => (
                 <Card key={admin.id} className="bg-gray-800 border-gray-700">
                   <CardHeader>
                     <div className="flex items-center justify-between">
